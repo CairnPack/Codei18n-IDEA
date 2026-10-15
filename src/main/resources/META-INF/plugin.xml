@@ -1,0 +1,24 @@
+<idea-plugin>
+    <id>dev.codei18n.idea</id>
+    <name>CodeI18n Comment Translations</name>
+    <version>0.1.0</version>
+    <vendor>CodeI18n IDEA Contributors</vendor>
+    <description><![CDATA[
+        Display translations from .codei18n/mappings.json below source comments without changing source files.
+        Supports automatic reload, project language selection and nested .codei18n roots.
+    ]]></description>
+    <idea-version since-build="262" until-build="262.*"/>
+    <depends>com.intellij.modules.platform</depends>
+    <extensions defaultExtensionNs="com.intellij">
+        <postStartupActivity implementation="dev.codei18n.idea.TranslationStartup"/>
+        <projectConfigurable id="dev.codei18n.idea.settings" displayName="CodeI18n"
+                             instance="dev.codei18n.idea.TranslationConfigurable"/>
+        <notificationGroup id="CodeI18n" displayType="BALLOON"/>
+    </extensions>
+    <actions>
+        <action id="CodeI18n.Refresh" class="dev.codei18n.idea.RefreshTranslationsAction"
+                text="Reload CodeI18n Translations" description="Reload local comment translations">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>

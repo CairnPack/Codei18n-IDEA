@@ -1,0 +1,18 @@
+{
+  "version": "1.0",
+  "sourceLanguage": "en",
+  "targetLanguage": "zh-CN",
+  "comments": {
+    "demo-balance": {
+      "en": "// Calculate account balance",
+      "zh-CN": "计算账户余额",
+      "zh-TW": "計算帳戶餘額",
+      "ja": "口座残高を計算"
+    },
+    "demo-doc": {
+      "en": "/** A read-only translation demo. */",
+      "zh-CN": "只在编辑器中展示译文的示例。\n源文件保持英文，不会写入翻译。",
+      "zh-TW": "僅在編輯器中顯示譯文的範例。\n原始檔保持英文，不會寫入翻譯。"
+    }
+  }
+}
