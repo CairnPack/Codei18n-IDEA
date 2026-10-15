@@ -38,6 +38,7 @@ public final class SmokeStarter implements ApplicationStarter {
    });
    waitCount(editor[0],2);
    waitTranslation(editor[0],"计算账户余额");
+   ui(()->HighlightingTest.run(project,editor[0],root.getParent().resolve("highlighting-render.png")));
    ui(()->{
     var hints=editor[0].getInlayModel().getBlockElementsInRange(0,document[0].getTextLength(),TranslationRenderer.class);
     check(hints.size()==2,"two real translation block inlays rendered");

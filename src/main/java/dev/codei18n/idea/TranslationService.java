@@ -44,7 +44,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @Service(Service.Level.PROJECT)
 public final class TranslationService implements Disposable {
     private record Target(Editor editor, Document document, Path path) {}
-    private record Hint(int offset, String text, String language) {}
+    private record Hint(int offset, String text, String language, CommentHighlighting.Result highlighting) {}
     private record Plan(Target target, long stamp, List<Hint> hints) {}
     private record Result(List<Plan> plans, Map<Path, String> errors) {}
     private final Project project;
@@ -63,6 +63,10 @@ public final class TranslationService implements Disposable {
         ApplicationManager.getApplication().invokeLater(() -> {
             if (disposed || project.isDisposed() || started) return;
             started = true;
+            project.getMessageBus().connect(this).subscribe(
+                    com.intellij.openapi.editor.colors.EditorColorsManager.TOPIC, scheme -> requestRefresh(false));
+            project.getMessageBus().connect(this).subscribe(
+                    com.intellij.ide.todo.TodoConfiguration.PROPERTY_CHANGE, event -> requestRefresh(false));
             EditorFactory factory = EditorFactory.getInstance();
             factory.getEventMulticaster().addDocumentListener(new DocumentListener() {
                 @Override public void documentChanged(DocumentEvent event) {
@@ -174,7 +178,7 @@ public final class TranslationService implements Disposable {
                                 if (element instanceof PsiComment comment) {
                                     String translated = index.translation(comment.getText());
                                     if (translated != null) hints.add(new Hint(comment.getTextRange().getEndOffset(),
-                                            translated, index.language()));
+                                            translated, index.language(), CommentHighlighting.translate(comment, translated)));
                                 } else super.visitElement(element);
                             }
                         });
@@ -194,7 +198,7 @@ public final class TranslationService implements Disposable {
                             editor.getInlayModel().execute(true, () -> {
                                 for (Hint hint : plan.hints) {
                                     Inlay<?> inlay = editor.getInlayModel().addBlockElement(hint.offset, true, false, 0,
-                                            new TranslationRenderer(hint.text, hint.language));
+                                            new TranslationRenderer(hint.text, hint.language, hint.highlighting));
                                     if (inlay != null) created.add(inlay);
                                 }
                             });

@@ -13,7 +13,7 @@ Copy-Item "$PSScriptRoot/examples/demo/*" "$root/project" -Recurse -Force
 Copy-Item "$PSScriptRoot/examples/demo/.codei18n" "$root/project" -Recurse -Force
 Copy-Item "$PSScriptRoot/build/package/codei18n-idea" "$root/plugins" -Recurse -Force
 $sdkClasspath=(Get-ChildItem "$IdeaHome/lib" -Filter '*.jar' | ForEach-Object FullName) -join ';'
-$compileArgs=@('--release','21','-encoding','UTF-8','-classpath',"$PSScriptRoot/build/classes;$sdkClasspath",'-d',"$root/harness-classes","$PSScriptRoot/integration/SmokeStarter.java")
+$compileArgs=@('--release','21','-encoding','UTF-8','-classpath',"$PSScriptRoot/build/classes;$sdkClasspath",'-d',"$root/harness-classes","$PSScriptRoot/integration/SmokeStarter.java","$PSScriptRoot/integration/HighlightingTest.java")
 $compileArgs | ForEach-Object {'"'+$_.Replace('\','/')+'"'} | Set-Content "$root/compiler.args" -Encoding utf8
 & "$JdkHome/bin/java.exe" -m jdk.compiler/com.sun.tools.javac.Main "@$root/compiler.args"
 if($LASTEXITCODE -ne 0){throw 'Harness compilation failed'}

@@ -56,6 +56,7 @@ codei18n translate
 ## 匹配方式与边界
 
 - 使用 IDEA PSI 的 `PsiComment`，不会把字符串中的 `//` 当成注释；语言需要对应的 IDEA 语言插件。
+- 译文使用原注释语言的语法高亮和当前编辑器配色，并按 IDEA 的 TODO 规则高亮。额外支持 Kotlin KDoc 的 `[引用]` 和 Java Javadoc 的 `{@link ...}`、`{@linkplain ...}`、`@see`、`@param` 引用样式；普通注释和代码片段中的方括号不会被当作文档引用。译文可以保留或省略外层注释符号，但需保留文档标签与引用标记；不会恢复翻译时丢失的标记。引用使用语言插件的文档引用配色，不做符号解析、有效性检查或复现第三方插件额外添加的高亮。
 - 使用上游注释文本归一化规则反查缓存，不自行仿造各语言的语义 ID。源码移动、行号变化不会影响相同文本匹配。
 - 同一原文对应多个不同译文，或部分同文记录缺失译文时，跳过该原文，避免随意选取。当前不支持通过符号 ID 消解这种歧义。
 - 未翻译、未知语言、原文已改变时不显示。跨多条 PSI 行注释合并成一个缓存记录的情况尚不匹配；单条行注释和多行块注释可匹配。
@@ -86,4 +87,4 @@ gradle -PideaHome="C:/Program Files/JetBrains/IntelliJ IDEA 2026.2.1" buildPlugi
 .\test-ide.ps1 -IdeaHome 'C:\Program Files\JetBrains\IntelliJ IDEA 2026.2.1'
 ```
 
-它在 `build/integration` 下使用隔离的 IDEA 配置、系统目录、插件目录和示例项目，启动真实 IDEA 平台，检查 Java PSI 与实际 block inlay；不会安装到日常使用的 IDEA 配置。结果与日志保存在该目录。测试辅助插件只在隔离环境加载，不进入发行 ZIP。
+它在 `build/integration` 下使用隔离的 IDEA 配置、系统目录、插件目录和示例项目，启动真实 IDEA 平台及自带的 Java、Kotlin 插件，检查 PSI、实际 block inlay、Javadoc/KDoc 引用颜色、注释包装、代码片段不误高亮及主题配色变化；不会安装到日常使用的 IDEA 配置。结果、绘制 PNG 与日志保存在该目录。测试辅助插件只在隔离环境加载，不进入发行 ZIP。

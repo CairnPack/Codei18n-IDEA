@@ -1,5 +1,5 @@
 <idea-plugin>
  <id>dev.codei18n.integration</id><name>CodeI18n Integration Harness</name><version>1</version><vendor>Local test</vendor>
- <depends>dev.codei18n.idea</depends><depends>com.intellij.java</depends>
+ <depends>dev.codei18n.idea</depends><depends>com.intellij.java</depends><depends>org.jetbrains.kotlin</depends>
  <extensions defaultExtensionNs="com.intellij"><appStarter id="codei18n-smoke" implementation="dev.codei18n.integration.SmokeStarter"/></extensions>
 </idea-plugin>
