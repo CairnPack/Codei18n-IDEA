@@ -1,0 +1,83 @@
+name: Build Plugin
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Release version; empty generates a unique nightly version
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      IDEA_VERSION: 2026.2.1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine plugin version
+        id: version
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$RELEASE_VERSION" ]]; then
+            if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+              echo '::error::Use a version such as 0.1.0 or 0.2.0-beta.1, without a v prefix.'
+              exit 1
+            fi
+            version="$RELEASE_VERSION"
+          else
+            base=$(python3 -c 'import xml.etree.ElementTree as E; print(E.parse("src/main/resources/META-INF/plugin.xml").findtext("version"))')
+            version="${base}-nightly.$(date -u +%Y%m%d).${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}.${GITHUB_SHA:0:7}"
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Cache IntelliJ SDK
+        id: sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/idea-sdk
+          key: idea-sdk-${{ runner.os }}-${{ runner.arch }}-${{ env.IDEA_VERSION }}
+
+      - name: Download and verify IntelliJ SDK
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          archive="idea-${IDEA_VERSION}.tar.gz"
+          curl --fail --location --retry 3 --output "$archive" "https://download.jetbrains.com/idea/$archive"
+          curl --fail --location --retry 3 --output "$archive.sha256" "https://download.jetbrains.com/idea/$archive.sha256"
+          sha256sum --check "$archive.sha256"
+          mkdir -p idea-sdk
+          tar -xzf "$archive" --strip-components=1 -C idea-sdk --wildcards '*/lib/*'
+          rm "$archive" "$archive.sha256"
+
+      - name: Run regression tests and build plugin
+        env:
+          PLUGIN_VERSION: ${{ steps.version.outputs.value }}
+        run: gradle --no-daemon --stacktrace "-PideaHome=$RUNNER_TEMP/idea-sdk" "-PpluginVersion=$PLUGIN_VERSION" clean buildPlugin
+
+      - name: Upload plugin ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: codei18n-idea-${{ steps.version.outputs.value }}
+          path: build/distributions/*.zip
+          if-no-files-found: error
+          retention-days: 14

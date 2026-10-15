@@ -1,7 +1,7 @@
 plugins { java }
 
 group = "dev.codei18n"
-version = "0.1.0"
+version = providers.gradleProperty("pluginVersion").getOrElse("0.1.0")
 
 // Compile against an installed IDEA SDK; no IDE download or third-party runtime dependencies.
 val ideaHome = providers.gradleProperty("ideaHome").orElse(providers.environmentVariable("IDEA_HOME"))
@@ -11,6 +11,13 @@ dependencies {
 }
 java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
 tasks.withType<JavaCompile>().configureEach { options.encoding = "UTF-8" }
+
+tasks.processResources {
+    inputs.property("pluginVersion", project.version.toString())
+    filesMatching("META-INF/plugin.xml") {
+        filter { line -> line.replace(Regex("<version>.*?</version>"), "<version>${project.version}</version>") }
+    }
+}
 tasks.register<JavaExec>("coreTest") {
     dependsOn(tasks.testClasses)
     classpath = sourceSets.test.get().runtimeClasspath
