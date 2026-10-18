@@ -36,6 +36,7 @@ Copy-Item (Join-Path $PSScriptRoot 'src/main/resources/*') $classes -Recurse -Fo
 $tests = @(Get-ChildItem (Join-Path $PSScriptRoot 'src/test/java') -Recurse -Filter '*.java' | ForEach-Object FullName)
 & $javac --release 21 -encoding UTF-8 -classpath "$classes;$sdk" -d $testClasses @tests
 if ($LASTEXITCODE -ne 0) { throw 'Test compilation failed.' }
+Copy-Item (Join-Path $PSScriptRoot 'src/test/resources/*') $testClasses -Recurse -Force
 & $java -classpath "$testClasses;$classes;$sdk" dev.codei18n.idea.MappingIndexTest
 if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
 Add-Type -AssemblyName System.IO.Compression.FileSystem

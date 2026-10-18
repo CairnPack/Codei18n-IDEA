@@ -16,8 +16,8 @@ import java.util.concurrent.atomic.AtomicLong;
 /** Loads only on the refresh worker, never on the EDT; invalidation is lock-free and safe from any thread. */
 public final class MappingRepository {
     private record Fingerprint(FileTime modified, long size) {}
-    /** Metadata of both data files; config is null when absent. */
-    private record DataFiles(Fingerprint mappings, Fingerprint config) {}
+    /** Metadata of the data files; config and index are null when absent. */
+    private record DataFiles(Fingerprint mappings, Fingerprint config, Fingerprint index) {}
     private record Cached(long revision, DataFiles files, String language, MappingIndex index) {}
 
     private final Map<Path, Cached> cache = new ConcurrentHashMap<>();
@@ -73,7 +73,8 @@ public final class MappingRepository {
     private static MappingIndex parse(Path root, DataFiles files, String language) throws IOException {
         String mappings = Files.readString(CodeI18nFiles.mappings(root));
         String config = files.config == null ? "{}" : Files.readString(CodeI18nFiles.config(root));
-        return MappingIndex.parse(mappings, config, language);
+        String index = files.index == null ? null : Files.readString(CodeI18nFiles.index(root));
+        return MappingIndex.parse(mappings, config, index, language);
     }
 
     private boolean settled(Path root, DataFiles before) throws IOException {
@@ -87,8 +88,9 @@ public final class MappingRepository {
     }
 
     private static DataFiles fingerprints(Path root) throws IOException {
-        Path config = CodeI18nFiles.config(root);
-        return new DataFiles(fingerprint(CodeI18nFiles.mappings(root)), Files.exists(config) ? fingerprint(config) : null);
+        Path config = CodeI18nFiles.config(root), index = CodeI18nFiles.index(root);
+        return new DataFiles(fingerprint(CodeI18nFiles.mappings(root)), Files.exists(config) ? fingerprint(config) : null,
+                Files.exists(index) ? fingerprint(index) : null);
     }
 
     private static Fingerprint fingerprint(Path path) throws IOException {

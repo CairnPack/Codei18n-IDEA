@@ -15,7 +15,8 @@ final class CodeI18nFiles {
     static Path directory(Path root) { return root.resolve(DIRECTORY); }
     static Path mappings(Path root) { return directory(root).resolve("mappings.json"); }
     static Path config(Path root) { return directory(root).resolve("config.json"); }
-    static List<Path> dataFiles(Path root) { return List.of(mappings(root), config(root)); }
+    static Path index(Path root) { return directory(root).resolve("index.json"); }
+    static List<Path> dataFiles(Path root) { return List.of(mappings(root), config(root), index(root)); }
 
     /** The nearest root at or above {@code file}'s directory, without leaving {@code projectRoot}; else null. */
     static Path findRoot(Path file, Path projectRoot) {

@@ -24,6 +24,7 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.util.Alarm;
 import com.intellij.util.concurrency.AppExecutorUtil;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -44,8 +45,12 @@ public final class TranslationService implements Disposable {
     private static final String NOTIFICATION_GROUP = "CodeI18n";
 
     private record Target(Editor editor, Document document, Path path) {}
-    /** Mapping indexes for one refresh: per open source (null when unavailable), plus load errors per root. */
-    private record Loaded(Map<Path, MappingIndex> bySource, Map<Path, String> errors) {}
+    /**
+     * Mapping indexes for one refresh: per open source (null when unavailable), its root, the SHA-1 of its saved bytes
+     * (absent while the document has unsaved changes), plus load errors per root.
+     */
+    private record Loaded(Map<Path, MappingIndex> bySource, Map<Path, Path> roots, Map<Path, String> hashes,
+                          Map<Path, String> errors) {}
     private record Plan(Target target, long stamp, List<TranslationHint> hints) {}
 
     private final Project project;
@@ -143,7 +148,7 @@ public final class TranslationService implements Disposable {
         AppExecutorUtil.getAppExecutorService().execute(() -> {
             Loaded loaded = load(targets, base, language, revision);
             if (loaded == null) return;
-            ReadAction.nonBlocking(() -> plan(targets, loaded.bySource))
+            ReadAction.nonBlocking(() -> plan(targets, loaded))
                     .withDocumentsCommitted(project)
                     .expireWith(this)
                     .expireWhen(() -> isStale(revision))
@@ -173,6 +178,8 @@ public final class TranslationService implements Disposable {
     private Loaded load(List<Target> targets, Path base, String language, long revision) {
         Map<Path, MappingIndex> byRoot = new HashMap<>();
         Map<Path, MappingIndex> bySource = new HashMap<>();
+        Map<Path, Path> roots = new HashMap<>();
+        Map<Path, String> hashes = new HashMap<>();
         Map<Path, String> errors = new HashMap<>();
         for (Target target : targets) {
             if (isStale(revision)) return null;
@@ -180,10 +187,13 @@ public final class TranslationService implements Disposable {
             if (root == null) continue;
             if (!byRoot.containsKey(root)) byRoot.put(root, loadRoot(root, language, errors));
             bySource.put(target.path, byRoot.get(root));
+            roots.put(target.path, root);
+            String hash = savedContentHash(target);
+            if (hash != null) hashes.put(target.path, hash);
         }
         if (isStale(revision)) return null;
         repository.retain(byRoot.keySet());
-        return new Loaded(bySource, errors);
+        return new Loaded(bySource, roots, hashes, errors);
     }
 
     private MappingIndex loadRoot(Path root, String language, Map<Path, String> errors) {
@@ -196,14 +206,35 @@ public final class TranslationService implements Disposable {
         }
     }
 
-    private List<Plan> plan(List<Target> targets, Map<Path, MappingIndex> bySource) {
+    /**
+     * SHA-1 of the file bytes on disk when the document has no unsaved changes, else null: index.json positions are
+     * only trusted for an unchanged file (docs/index-format.md §9).
+     */
+    private static String savedContentHash(Target target) {
+        try {
+            if (FileDocumentManager.getInstance().isDocumentUnsaved(target.document)) return null;
+            if (Files.size(target.path) > MAX_DOCUMENT_LENGTH) return null;
+            return CommentText.sha1(Files.readAllBytes(target.path));
+        } catch (IOException | RuntimeException ex) {
+            return null;
+        }
+    }
+
+    private List<Plan> plan(List<Target> targets, Loaded loaded) {
         List<Plan> plans = new ArrayList<>();
         for (Target target : targets) {
             ProgressManager.checkCanceled();
-            MappingIndex index = bySource.get(target.path);
+            MappingIndex index = loaded.bySource.get(target.path);
             var psi = PsiDocumentManager.getInstance(project).getPsiFile(target.document);
             boolean scannable = index != null && psi != null && target.document.getTextLength() <= MAX_DOCUMENT_LENGTH;
-            List<TranslationHint> hints = scannable ? TranslationHint.scan(psi, index) : List.of();
+            List<TranslationHint> hints = List.of();
+            if (scannable) {
+                Path root = loaded.roots.get(target.path);
+                String relative = root.relativize(target.path.toAbsolutePath().normalize()).toString().replace(java.io.File.separatorChar, '/');
+                var context = new MappingIndex.FileContext(relative, loaded.hashes.get(target.path),
+                        target.document.getImmutableCharSequence().toString());
+                hints = TranslationHint.scan(psi, index, context);
+            }
             plans.add(new Plan(target, target.document.getModificationStamp(), hints));
         }
         return plans;

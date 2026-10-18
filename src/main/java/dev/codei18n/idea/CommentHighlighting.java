@@ -57,6 +57,16 @@ final class CommentHighlighting {
 
     private CommentHighlighting() {}
 
+    /** Plain comment styling by index.json type, for translations located without comment PSI. */
+    static Result plain(String type) {
+        TextAttributesKey base = switch (type == null ? "" : type) {
+            case "doc" -> DefaultLanguageHighlighterColors.DOC_COMMENT;
+            case "block" -> DefaultLanguageHighlighterColors.BLOCK_COMMENT;
+            default -> DefaultLanguageHighlighterColors.LINE_COMMENT;
+        };
+        return new Result(base, List.of());
+    }
+
     static Result translate(PsiComment comment, String text) {
         Syntax syntax = Syntax.of(comment);
         if (syntax.prefix.isEmpty()) return new Result(syntax.base, List.of());

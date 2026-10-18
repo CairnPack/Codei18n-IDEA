@@ -180,6 +180,8 @@ public final class MappingIndexTest {
             }
         }
         System.out.println("PASS: " + assertions + " mapping/repository assertions");
+        IndexMatchingTest.run();
+        C1ReproTest.main(new String[0]);
     }
     private static void equal(Object expected, Object actual) {
         assertions++;
