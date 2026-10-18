@@ -1,0 +1,333 @@
+{
+  "version": "1",
+  "generatedAt": "2026-10-18T06:41:02Z",
+  "generator": "codei18n/dev",
+  "sourceLanguage": "en",
+  "localLanguage": "zh-CN",
+  "files": {
+    "Inventory.kt": {
+      "contentHash": "086f9226e47fbf917744af243f38f08a33cc3693",
+      "language": "kotlin",
+      "comments": [
+        {
+          "id": "34962be6a83e20651ab58f34e1fb98be6b50bc0a",
+          "range": {
+            "startLine": 3,
+            "startCol": 1,
+            "endLine": 6,
+            "endCol": 4
+          },
+          "type": "block",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "738413c0c2f2d82cbc844272c6dc355804ec78db",
+          "parts": 1,
+          "symbol": "dev.codei18n.samples.Inventory"
+        },
+        {
+          "id": "c791c0a75af0098ae49c4747d33512aa37f7a2ff",
+          "range": {
+            "startLine": 10,
+            "startCol": 5,
+            "endLine": 15,
+            "endCol": 8
+          },
+          "type": "doc",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "7af8d803151bc07d6d3a974063b1c24adbc1ca5f",
+          "parts": 1,
+          "symbol": "dev.codei18n.samples.Inventory#add"
+        },
+        {
+          "id": "b7b67223c31319555fbe9222f661da853a3c8a36",
+          "range": {
+            "startLine": 17,
+            "startCol": 9,
+            "endLine": 19,
+            "endCol": 39
+          },
+          "type": "line",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "2861d73404299c0c9118e635702fb26ad8a28433",
+          "parts": 3,
+          "symbol": "dev.codei18n.samples.Inventory#add"
+        }
+      ]
+    },
+    "Ledger.cs": {
+      "contentHash": "643148aae1455549226cea85df22dd66f268cfab",
+      "language": "csharp",
+      "comments": [
+        {
+          "id": "84bfff655637cf881f7c90a70d40ea1447b51772",
+          "range": {
+            "startLine": 5,
+            "startCol": 5,
+            "endLine": 8,
+            "endCol": 8
+          },
+          "type": "block",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "2ae9bb7bdd60fdc271a59b66b10c630b6561c7a3",
+          "parts": 1,
+          "symbol": "CodeI18n.Samples.Ledger"
+        },
+        {
+          "id": "7e04b90709f2bf302dbb0ec6adc6762ced44dfdb",
+          "range": {
+            "startLine": 13,
+            "startCol": 9,
+            "endLine": 17,
+            "endCol": 48
+          },
+          "type": "doc",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "3bf4d31407d9907f39bdfd0e5508c6a4bad111b0",
+          "parts": 5,
+          "symbol": "CodeI18n.Samples.Ledger#Book"
+        },
+        {
+          "id": "b33280fd81abe5f9a32df283c25949380244fd03",
+          "range": {
+            "startLine": 20,
+            "startCol": 13,
+            "endLine": 21,
+            "endCol": 56
+          },
+          "type": "line",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "0256a13c9eb891ad7c4da79346c665542d0c9fc9",
+          "parts": 2,
+          "symbol": "CodeI18n.Samples.Ledger#Book"
+        }
+      ]
+    },
+    "OrderService.java": {
+      "contentHash": "3bd802b99c22e35fb7a6003a1cf684d51966042f",
+      "language": "java",
+      "comments": [
+        {
+          "id": "e4272cc23fc4d61fc31c5ee9df5c578439500d08",
+          "range": {
+            "startLine": 6,
+            "startCol": 1,
+            "endLine": 9,
+            "endCol": 4
+          },
+          "type": "block",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "82419c3bbc8fd82495734c1acc1cc00bf11f52e9",
+          "parts": 1,
+          "symbol": "dev.codei18n.samples.OrderService"
+        },
+        {
+          "id": "46fe4ecd049d2ed769d159ba525bfb31d4c1315b",
+          "range": {
+            "startLine": 13,
+            "startCol": 5,
+            "endLine": 18,
+            "endCol": 8
+          },
+          "type": "doc",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "49acc63c60bae4e4c06ea5e2e16a805a1174d244",
+          "parts": 1,
+          "symbol": "dev.codei18n.samples.OrderService#place"
+        },
+        {
+          "id": "f04481918b278889b70ff39c6a7539c93c6b8b5a",
+          "range": {
+            "startLine": 20,
+            "startCol": 9,
+            "endLine": 21,
+            "endCol": 59
+          },
+          "type": "line",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "19ad315848060ee0052e1c2547323218b659da16",
+          "parts": 2,
+          "symbol": "dev.codei18n.samples.OrderService"
+        }
+      ]
+    },
+    "cart.ts": {
+      "contentHash": "c38c26ff03eb367f311c0e27716c14652a0968bc",
+      "language": "typescript",
+      "comments": [
+        {
+          "id": "8a6f096d1f1cec8ec2f56e45c4c8358f9dfc10bc",
+          "range": {
+            "startLine": 7,
+            "startCol": 1,
+            "endLine": 10,
+            "endCol": 4
+          },
+          "type": "block",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "5a789a1258922dfe832debd3af8e5a27c7e6f74b",
+          "parts": 1,
+          "symbol": "Cart"
+        },
+        {
+          "id": "17080fa7fd0cb20d70aadd9ecf3242c0f0b3bad5",
+          "range": {
+            "startLine": 14,
+            "startCol": 3,
+            "endLine": 19,
+            "endCol": 6
+          },
+          "type": "doc",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "7754a85620731a70e2490636303bf6638589bfd3",
+          "parts": 1,
+          "symbol": "Cart.add"
+        },
+        {
+          "id": "059432cac29caaae48bcff56b9075048a625dd77",
+          "range": {
+            "startLine": 21,
+            "startCol": 5,
+            "endLine": 22,
+            "endCol": 58
+          },
+          "type": "line",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "717ae0a382a9422acae92985dc62823edb963343",
+          "parts": 2,
+          "symbol": "Cart.existing"
+        }
+      ]
+    },
+    "format.js": {
+      "contentHash": "ee263f712fdcfe99d727a8794a199927c85a2229",
+      "language": "javascript",
+      "comments": [
+        {
+          "id": "7e0f032b837ef83b90d9a2a10cebcd87bd6570ed",
+          "range": {
+            "startLine": 3,
+            "startCol": 1,
+            "endLine": 6,
+            "endCol": 4
+          },
+          "type": "block",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "05a2895e0340e11a3b3c96954f20f983656d18bc",
+          "parts": 1,
+          "symbol": ""
+        },
+        {
+          "id": "e3a98b71663ac3537c9432dfde88a93165cf3d82",
+          "range": {
+            "startLine": 8,
+            "startCol": 1,
+            "endLine": 14,
+            "endCol": 4
+          },
+          "type": "doc",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "7502faf93a405a59de80ebbdf1795ebee94d641e",
+          "parts": 1,
+          "symbol": "formatPrice"
+        },
+        {
+          "id": "0e0897a4a7136617c331e80abc7a7c4f7eb3e1b1",
+          "range": {
+            "startLine": 16,
+            "startCol": 3,
+            "endLine": 18,
+            "endCol": 38
+          },
+          "type": "line",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "0d987ab5878d64bd5164c2a680c91b0b95092c47",
+          "parts": 3,
+          "symbol": "formatter"
+        }
+      ]
+    },
+    "invoice.dart": {
+      "contentHash": "0bbaed9cacd3bed52adbc87e421a60c749d447d4",
+      "language": "dart",
+      "comments": [
+        {
+          "id": "10b6972ede1825e1b071cb7718e025439b54f960",
+          "range": {
+            "startLine": 1,
+            "startCol": 1,
+            "endLine": 4,
+            "endCol": 4
+          },
+          "type": "block",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "7ff5129802259346c0056711c767ecf76533f991",
+          "parts": 1,
+          "symbol": "Invoice"
+        },
+        {
+          "id": "fb436215be5d79a093f69651634be03ac88b1478",
+          "range": {
+            "startLine": 8,
+            "startCol": 3,
+            "endLine": 10,
+            "endCol": 49
+          },
+          "type": "doc",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "68ee20118e6bfc71bef957b52c76c754027dc283",
+          "parts": 3,
+          "symbol": "Invoice#total"
+        },
+        {
+          "id": "d08224b89937d10302b73c97200c83452a1f3cd1",
+          "range": {
+            "startLine": 12,
+            "startCol": 5,
+            "endLine": 13,
+            "endCol": 50
+          },
+          "type": "line",
+          "lang": "en",
+          "langSource": "detected",
+          "sourceKey": "en",
+          "textHash": "e9730541b09bcb4e91dfc99d8fd99bf29f04c93b",
+          "parts": 2,
+          "symbol": "Invoice#total"
+        }
+      ]
+    }
+  }
+}

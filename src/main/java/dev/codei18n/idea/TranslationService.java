@@ -242,13 +242,20 @@ public final class TranslationService implements Disposable {
     }
 
     /**
-     * SHA-1 of the file bytes on disk when the document has no unsaved changes, else null: index.json positions are
-     * only trusted for an unchanged file (docs/index-format.md §9).
+     * SHA-1 of the file bytes on disk when the document shows exactly those bytes, else null: index.json positions are
+     * only trusted for an unchanged file (docs/index-format.md §9). The document is unsaved, or IDEA has not yet
+     * reloaded an external write (e.g. a branch switch that also rewrote .codei18n): then the disk bytes describe
+     * another text, and positions from a matching index would attach translations to the wrong comments.
      */
     private static String savedContentHash(Target target) {
         try {
-            if (FileDocumentManager.getInstance().isDocumentUnsaved(target.document)) return null;
-            if (Files.size(target.path) > MAX_DOCUMENT_LENGTH) return null;
+            var documents = FileDocumentManager.getInstance();
+            if (documents.isDocumentUnsaved(target.document)) return null;
+            var file = documents.getFile(target.document);
+            long size = Files.size(target.path);
+            if (file == null || file.getLength() != size
+                    || file.getTimeStamp() != Files.getLastModifiedTime(target.path).toMillis()) return null;
+            if (size > MAX_DOCUMENT_LENGTH) return null;
             return CommentText.sha1(Files.readAllBytes(target.path));
         } catch (IOException | RuntimeException ex) {
             return null;

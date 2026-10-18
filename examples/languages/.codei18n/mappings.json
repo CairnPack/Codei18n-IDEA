@@ -1,0 +1,79 @@
+{
+  "version": "1.0",
+  "sourceLanguage": "en",
+  "targetLanguage": "zh-CN",
+  "comments": {
+    "059432cac29caaae48bcff56b9075048a625dd77": {
+      "en": "// Merge with an existing line when the same product\n// is added twice, instead of creating a second line.",
+      "zh-CN": "[MOCK en->zh-CN] // Merge with an existing line when the same product\n// is added twice, instead of creating a second line."
+    },
+    "0e0897a4a7136617c331e80abc7a7c4f7eb3e1b1": {
+      "en": "// Intl.NumberFormat is slow to construct,\n// so a single formatter per currency is cached\n// and reused for every later call.",
+      "zh-CN": "[MOCK en->zh-CN] // Intl.NumberFormat is slow to construct,\n// so a single formatter per currency is cached\n// and reused for every later call."
+    },
+    "10b6972ede1825e1b071cb7718e025439b54f960": {
+      "en": "/*\n * Invoice model used by the billing screen.\n * Totals are recomputed whenever a line changes.\n */",
+      "zh-CN": "[MOCK en->zh-CN] /*\n * Invoice model used by the billing screen.\n * Totals are recomputed whenever a line changes.\n */"
+    },
+    "17080fa7fd0cb20d70aadd9ecf3242c0f0b3bad5": {
+      "en": "/**\n   * Adds an item to the cart.\n   *\n   * @param item the item to add\n   * @returns the number of distinct items\n   */",
+      "zh-CN": "/**\n   * [MOCK en->zh-CN] Adds an item to the cart.\n   *\n   * @param item the item to add\n   * @returns the number of distinct items\n   */"
+    },
+    "34962be6a83e20651ab58f34e1fb98be6b50bc0a": {
+      "en": "/*\n * Inventory keeps the stock level of every product in memory.\n * It is not thread safe; wrap it when sharing between coroutines.\n */",
+      "zh-CN": "[MOCK en->zh-CN] /*\n * Inventory keeps the stock level of every product in memory.\n * It is not thread safe; wrap it when sharing between coroutines.\n */"
+    },
+    "46fe4ecd049d2ed769d159ba525bfb31d4c1315b": {
+      "en": "/**\n     * Places a new order for the given customer.\n     *\n     * @param customer the customer who places the order\n     * @return the number of orders in this session\n     */",
+      "zh-CN": "/**\n     * [MOCK en->zh-CN] Places a new order for the given customer.\n     *\n     * @param customer the customer who places the order\n     * @return the number of orders in this session\n     */"
+    },
+    "7e04b90709f2bf302dbb0ec6adc6762ced44dfdb": {
+      "en": "/// <summary>\n/// Adds a booking to the ledger.\n/// </summary>\n/// <param name=\"amount\">The amount to book.</param>\n/// <returns>The new balance.</returns>",
+      "zh-CN": "/// [MOCK en->zh-CN] <summary>\n/// Adds a booking to the ledger.\n/// </summary>\n/// <param name=\"amount\">The amount to book.</param>\n/// <returns>The new balance.</returns>"
+    },
+    "7e0f032b837ef83b90d9a2a10cebcd87bd6570ed": {
+      "en": "/*\n * Formatting helpers shared by the storefront pages.\n * They only depend on the built-in Intl API.\n */",
+      "zh-CN": "[MOCK en->zh-CN] /*\n * Formatting helpers shared by the storefront pages.\n * They only depend on the built-in Intl API.\n */"
+    },
+    "84bfff655637cf881f7c90a70d40ea1447b51772": {
+      "en": "/*\n     * Ledger records every booking of one account.\n     * Bookings are immutable once they are written.\n     */",
+      "zh-CN": "[MOCK en->zh-CN] /*\n     * Ledger records every booking of one account.\n     * Bookings are immutable once they are written.\n     */"
+    },
+    "8a6f096d1f1cec8ec2f56e45c4c8358f9dfc10bc": {
+      "en": "/*\n * Shopping cart that lives in the browser session.\n * Prices are stored in cents to avoid rounding errors.\n */",
+      "zh-CN": "[MOCK en->zh-CN] /*\n * Shopping cart that lives in the browser session.\n * Prices are stored in cents to avoid rounding errors.\n */"
+    },
+    "b33280fd81abe5f9a32df283c25949380244fd03": {
+      "en": "// Bookings are appended and never removed,\n// so the balance can always be recomputed.",
+      "zh-CN": "[MOCK en->zh-CN] // Bookings are appended and never removed,\n// so the balance can always be recomputed."
+    },
+    "b7b67223c31319555fbe9222f661da853a3c8a36": {
+      "en": "// Reject negative quantities early so the stock\n// never drops below zero because of a bad request\n// coming from the import job.",
+      "zh-CN": "[MOCK en->zh-CN] // Reject negative quantities early so the stock\n// never drops below zero because of a bad request\n// coming from the import job."
+    },
+    "c791c0a75af0098ae49c4747d33512aa37f7a2ff": {
+      "en": "/**\n     * Adds [quantity] units of the product identified by [sku].\n     *\n     * @param sku the stock keeping unit of the product\n     * @return the new stock level\n     */",
+      "zh-CN": "/**\n     * [MOCK en->zh-CN] Adds [quantity] units of the product identified by [sku].\n     *\n     * @param sku the stock keeping unit of the product\n     * @return the new stock level\n     */"
+    },
+    "d08224b89937d10302b73c97200c83452a1f3cd1": {
+      "en": "// Sum the lines first and apply the tax once,\n// which avoids accumulating rounding errors.",
+      "zh-CN": "[MOCK en->zh-CN] // Sum the lines first and apply the tax once,\n// which avoids accumulating rounding errors."
+    },
+    "e3a98b71663ac3537c9432dfde88a93165cf3d82": {
+      "en": "/**\n * Formats an amount of cents as a localized price.\n *\n * @param {number} cents the amount in cents\n * @param {string} currency the ISO currency code\n * @returns {string} the formatted price\n */",
+      "zh-CN": "/**\n * [MOCK en->zh-CN] Formats an amount of cents as a localized price.\n *\n * @param {number} cents the amount in cents\n * @param {string} currency the ISO currency code\n * @returns {string} the formatted price\n */"
+    },
+    "e4272cc23fc4d61fc31c5ee9df5c578439500d08": {
+      "en": "/*\n * OrderService collects the orders of one checkout session.\n * Orders are kept in insertion order until the session is closed.\n */",
+      "zh-CN": "[MOCK en->zh-CN] /*\n * OrderService collects the orders of one checkout session.\n * Orders are kept in insertion order until the session is closed.\n */"
+    },
+    "f04481918b278889b70ff39c6a7539c93c6b8b5a": {
+      "en": "// Normalize the customer name before storing it,\n// so that duplicate orders can be detected later.",
+      "zh-CN": "[MOCK en->zh-CN] // Normalize the customer name before storing it,\n// so that duplicate orders can be detected later."
+    },
+    "fb436215be5d79a093f69651634be03ac88b1478": {
+      "en": "/// Returns the total amount of all invoice lines.\n///\n/// The result already includes the [taxRate].",
+      "zh-CN": "/// [MOCK en->zh-CN] Returns the total amount of all invoice lines.\n///\n/// The result already includes the [taxRate]."
+    }
+  }
+}

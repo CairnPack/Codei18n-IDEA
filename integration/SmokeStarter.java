@@ -160,6 +160,8 @@ public final class SmokeStarter implements ApplicationStarter {
    Files.writeString(config,originalConfig);
    waitTranslation(editor[0],"计算账户余额",10);
    check(true,"external config language changes reload without VFS refresh");
+   LanguageSamplesTest.run(project,Path.of(System.getProperty("codei18n.smoke.languages")),
+    Path.of(System.getProperty("codei18n.smoke.branch")),Path.of(System.getProperty("codei18n.smoke.screenshots")));
    ui(()->{
     var hints=editor[0].getInlayModel().getBlockElementsInRange(0,document[0].getTextLength(),TranslationRenderer.class);
     java.awt.image.BufferedImage image=new java.awt.image.BufferedImage(700,300,java.awt.image.BufferedImage.TYPE_INT_ARGB);
@@ -185,7 +187,7 @@ public final class SmokeStarter implements ApplicationStarter {
    waitCount(editor[0],0);
    check(Arrays.equals(before,Files.readAllBytes(source)),"source file bytes unchanged");
    ui(()->EditorFactory.getInstance().releaseEditor(editor[0]));
-   Files.writeString(Path.of(System.getProperty("codei18n.smoke.result")),"PASS: IDEA platform load, Java PSI including Javadoc, two translation block inlays, zh-CN and zh-TW text, automatic source edit, external mapping/config reload without VFS refresh, same-metadata replacement, file/directory deletion and recreation, malformed mapping cleanup and recovery, Chinese paint PNG, disable clears inlays, source unchanged\n");
+   Files.writeString(Path.of(System.getProperty("codei18n.smoke.result")),"PASS: IDEA platform load, Java PSI including Javadoc, two translation block inlays, zh-CN and zh-TW text, automatic source edit, external mapping/config reload without VFS refresh, same-metadata replacement, file/directory deletion and recreation, malformed mapping cleanup and recovery, Chinese paint PNG, disable clears inlays, source unchanged; language samples Kotlin/Java/TypeScript/JavaScript/Dart/C# (block, merged line group, doc, string literal, PSI vs fallback path), auto refresh on open/rewrite/branch switch, editor screenshots\n");
    System.exit(0);
   } catch(Throwable e) {e.printStackTrace();System.exit(1);}
  }
