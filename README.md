@@ -103,4 +103,6 @@ Windows PowerShell，无需下载 Gradle 或 IntelliJ SDK，直接用已安装�
 
 结果、日志（`stdout.log`）与截图都在 `build/integration`。测试辅助插件只在隔离环境加载，不进入发行 ZIP。
 
+`test-rider.ps1`（`-RiderHome` 指定 Rider 目录）在 `build/integration-rider` 下用隔离目录无头启动 Rider，只测 `Ledger.cs`：断言与上面的 C# 样例相同，并截图到 `build/integration-rider/screenshots/rider/csharp.png`。**Rider 无头启动需要有效许可证**；在没有许可证的隔离配置中会以 `No valid license found`（退出码 7）结束，所以这个脚本目前没有跑通过。没有许可证时请按 PR 中的步骤手动验证。
+
 修改 `examples/languages` 的源码后，用 CLI 重新生成它的 `.codei18n`（在该目录依次运行 `codei18n map update`、`codei18n translate`；首次需 `codei18n init --provider mock`），删除生成的 `cache/`，并同步更新 `integration/fixtures/branch-switch`。
