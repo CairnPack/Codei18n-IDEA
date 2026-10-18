@@ -84,6 +84,41 @@ public final class TranslationService implements Disposable {
         schedule();
     }
 
+    /**
+     * Applies the display settings (on/off, mode) to open editors at once, without reopening them, then re-matches.
+     * Turning translations off clears them immediately; switching mode re-presents what is already shown.
+     */
+    public void applySettings() {
+        Runnable apply = () -> {
+            if (isStale() || presenter == null) return;
+            TranslationSettings settings = TranslationSettings.getInstance(project);
+            if (!settings.isEnabled()) presenter.clearAll();
+            presenter.setMode(settings.displayMode());
+            refresh();
+        };
+        var application = ApplicationManager.getApplication();
+        if (application.isDispatchThread()) apply.run();
+        else application.invokeLater(apply, ModalityState.any());
+    }
+
+    public void setTranslationsEnabled(boolean enabled) {
+        TranslationSettings.getInstance(project).setEnabled(enabled);
+        applySettings();
+    }
+
+    public void setDisplayMode(DisplayMode mode) {
+        TranslationSettings.getInstance(project).setDisplayMode(mode);
+        applySettings();
+    }
+
+    public void toggleTranslations() {
+        setTranslationsEnabled(!TranslationSettings.getInstance(project).isEnabled());
+    }
+
+    public void toggleDisplayMode() {
+        setDisplayMode(TranslationSettings.getInstance(project).displayMode().toggled());
+    }
+
     private void reload(Collection<Path> roots) {
         if (isStale()) return;
         roots.forEach(repository::invalidate);

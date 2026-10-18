@@ -13,6 +13,8 @@ public final class TranslationSettings implements PersistentStateComponent<Trans
     public static final class Values {
         public boolean enabled = true;
         public String language = "";
+        /** A {@link DisplayMode} name; unknown or missing values read as {@link DisplayMode#BELOW}. */
+        public String displayMode = DisplayMode.BELOW.name();
     }
     private Values state = new Values();
 
@@ -22,12 +24,23 @@ public final class TranslationSettings implements PersistentStateComponent<Trans
 
     public boolean isEnabled() { return state.enabled; }
 
+    public void setEnabled(boolean enabled) { state.enabled = enabled; }
+
     /** Display language override; blank follows .codei18n/config.json. */
     public String language() { return state.language == null ? "" : state.language.trim(); }
+
+    public DisplayMode displayMode() { return DisplayMode.parse(state.displayMode); }
+
+    public void setDisplayMode(DisplayMode mode) { state.displayMode = mode.name(); }
 
     public void update(boolean enabled, String language) {
         state.enabled = enabled;
         state.language = language.trim();
+    }
+
+    public void update(boolean enabled, String language, DisplayMode mode) {
+        update(enabled, language);
+        setDisplayMode(mode);
     }
 
     @Override public Values getState() { return state; }

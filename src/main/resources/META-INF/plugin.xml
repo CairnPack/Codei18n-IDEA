@@ -20,5 +20,16 @@
                 text="Reload CodeI18n Translations" description="Reload local comment translations">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
+        <action id="CodeI18n.ToggleTranslations" class="dev.codei18n.idea.ToggleTranslationsAction"
+                text="Show CodeI18n Translations" description="Show or hide comment translations">
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt shift O"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+        <action id="CodeI18n.ToggleDisplayMode" class="dev.codei18n.idea.ToggleDisplayModeAction"
+                text="Replace Comments with CodeI18n Translations"
+                description="Switch between translations below comments and in place of them">
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt shift P"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
     </actions>
 </idea-plugin>

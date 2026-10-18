@@ -183,6 +183,7 @@ public final class MappingIndexTest {
         IndexMatchingTest.run();
         C1ReproTest.main(new String[0]);
         DocMarkupTest.run();
+        DisplayModeLogicTest.run();
     }
     private static void equal(Object expected, Object actual) {
         assertions++;
