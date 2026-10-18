@@ -1,0 +1,2 @@
+# 集成测试夹具断言文件字节不变，必须固定为 LF，不受 core.autocrlf 影响
+examples/** text eol=lf
