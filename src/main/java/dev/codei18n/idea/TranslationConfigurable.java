@@ -14,8 +14,11 @@ public final class TranslationConfigurable implements Configurable {
     private final Project project;
     private JCheckBox enabled;
     private JTextField language;
+
     public TranslationConfigurable(Project project) { this.project = project; }
+
     @Override public String getDisplayName() { return "CodeI18n"; }
+
     @Override public JComponent createComponent() {
         enabled = new JCheckBox("Display comment translations without modifying source files");
         language = new JTextField();
@@ -29,21 +32,25 @@ public final class TranslationConfigurable implements Configurable {
         reset();
         return panel;
     }
+
     @Override public boolean isModified() {
-        var state = project.getService(TranslationSettings.class).getState();
-        return enabled != null && (enabled.isSelected() != state.enabled || !language.getText().trim().equals(state.language));
+        if (enabled == null) return false;
+        var settings = settings();
+        return enabled.isSelected() != settings.isEnabled() || !language.getText().trim().equals(settings.language());
     }
+
     @Override public void apply() {
-        var state = project.getService(TranslationSettings.class).getState();
-        state.enabled = enabled.isSelected();
-        state.language = language.getText().trim();
-        project.getService(TranslationService.class).requestRefresh(true);
+        settings().update(enabled.isSelected(), language.getText());
+        TranslationService.getInstance(project).reload();
     }
+
     @Override public void reset() {
         if (enabled == null) return;
-        var state = project.getService(TranslationSettings.class).getState();
-        enabled.setSelected(state.enabled);
-        language.setText(state.language);
+        enabled.setSelected(settings().isEnabled());
+        language.setText(settings().language());
     }
+
     @Override public void disposeUIResources() { enabled = null; language = null; }
+
+    private TranslationSettings settings() { return TranslationSettings.getInstance(project); }
 }

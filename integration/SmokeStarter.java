@@ -45,7 +45,7 @@ public final class SmokeStarter implements ApplicationStarter {
     check(hints.stream().allMatch(h->h.getHeightInPixels()>0 && h.getWidthInPixels()>0),"inlays have nonzero display dimensions");
     check(document[0].getText().equals(new String(before,java.nio.charset.StandardCharsets.UTF_8)),"document remains byte-equivalent to original");
     project.getService(TranslationSettings.class).getState().language="zh-TW";
-    project.getService(TranslationService.class).requestRefresh(false);
+    TranslationService.getInstance(project).refresh();
    });
    waitTranslation(editor[0],"計算帳戶餘額");
    ui(()->WriteCommandAction.runWriteCommandAction(project,()->{
@@ -60,16 +60,105 @@ public final class SmokeStarter implements ApplicationStarter {
    }));
    waitCount(editor[0],2);
    waitTranslation(editor[0],"計算帳戶餘額");
+   ui(()->WriteCommandAction.runWriteCommandAction(project,()->{
+    // Checked inside the same EDT event: before the debounced refresh can rebuild anything.
+    document[0].insertString(document[0].getText().indexOf("return income")," ");
+    check(count(editor[0])==2,"editing code outside comments keeps every translation in place");
+    document[0].insertString(document[0].getText().indexOf("// Calculate account balance")+3,"X");
+    check(count(editor[0])==1,"editing one comment removes only its own translation immediately");
+   }));
+   waitCount(editor[0],1);
+   ui(()->WriteCommandAction.runWriteCommandAction(project,()->{
+    document[0].setText(new String(before,java.nio.charset.StandardCharsets.UTF_8));
+    PsiDocumentManager.getInstance(project).commitDocument(document[0]);
+   }));
+   waitCount(editor[0],2);
+   ui(()->WriteCommandAction.runWriteCommandAction(project,()->{
+    String text=document[0].getText();
+    int comment=text.indexOf("// Calculate account balance");
+    document[0].insertString(comment+"// Calculate account balance".length(),"\n");
+    check(count(editor[0])==2,"a new line after a comment keeps its translation");
+    document[0].insertString(comment,"    ");
+    check(count(editor[0])==2,"indenting before a comment keeps its translation");
+   }));
+   Thread.sleep(1000); // Let the debounced refresh run: it must keep both translations.
+   waitCount(editor[0],2);
+   ui(()->WriteCommandAction.runWriteCommandAction(project,()->{
+    document[0].setText(new String(before,java.nio.charset.StandardCharsets.UTF_8));
+    PsiDocumentManager.getInstance(project).commitDocument(document[0]);
+   }));
+   waitCount(editor[0],2);
+   waitTranslation(editor[0],"計算帳戶餘額");
+   TranslationService service=project.getService(TranslationService.class);
+   var repository=(MappingRepository)field(service,"repository");
+   Thread.sleep(2500); // Let the disk check and debounced refresh settle.
+   MappingIndex cached=repository.load(root,"zh-TW");
+   Path otherSource=root.resolve("Other.java");
+   Files.writeString(otherSource,"// Calculate account balance\nclass Other {}\n");
+   Editor[] other=new Editor[1];
+   ui(()->{
+    VirtualFile file=LocalFileSystem.getInstance().refreshAndFindFileByNioFile(otherSource);
+    other[0]=EditorFactory.getInstance().createEditor(FileDocumentManager.getInstance().getDocument(file),project);
+   });
+   waitTranslation(other[0],"計算帳戶餘額");
+   Thread.sleep(2500);
+   check(repository.load(root,"zh-TW")==cached,"creating and opening another source under the same root does not reparse mappings");
+   ui(()->WriteCommandAction.runWriteCommandAction(project,()->{
+    Document otherDocument=other[0].getDocument();
+    otherDocument.insertString(otherDocument.getTextLength(),"\n");
+    FileDocumentManager.getInstance().saveDocument(otherDocument);
+   }));
+   Thread.sleep(2500);
+   check(repository.load(root,"zh-TW")==cached,"saving a source (VFS content event outside .codei18n) does not reparse mappings");
+   ui(()->{
+    var attached=(Map<?,?>)field(field(service,"presenter"),"editorListeners");
+    var listeners=(com.intellij.openapi.Disposable)attached.get(other[0]);
+    check(listeners!=null,"opened editor has its own listener disposable");
+    EditorFactory.getInstance().releaseEditor(other[0]);
+    check(com.intellij.openapi.util.Disposer.isDisposed(listeners) && !attached.containsKey(other[0]),
+     "released editor's listeners are disposed, so the service no longer retains the editor");
+   });
+   Thread.sleep(2500);
+   check(repository.load(root,"zh-TW")==cached,"closing a source under a still-open root does not reparse mappings");
+   Files.delete(otherSource);
    Path mappings=root.resolve(".codei18n/mappings.json");
    String originalMapping=Files.readString(mappings);
    Files.writeString(mappings,originalMapping.replace("計算帳戶餘額","自動重新載入譯文"));
-   refreshFile(mappings);
-   waitTranslation(editor[0],"自動重新載入譯文");
-   Files.writeString(mappings,"{broken");refreshFile(mappings);
+   // External CLI writes must reload without an explicit VFS refresh or UI interaction.
+   waitTranslation(editor[0],"自動重新載入譯文",10);
+   Files.writeString(mappings,"{broken");
    waitCount(editor[0],0);
    check(true,"malformed mapping clears stale translations");
-   Files.writeString(mappings,originalMapping);refreshFile(mappings);
+   Files.writeString(mappings,originalMapping);
    waitCount(editor[0],2);waitTranslation(editor[0],"計算帳戶餘額");
+   Path replacement=mappings.resolveSibling("mappings.tmp");
+   Files.writeString(replacement,originalMapping.replace("計算帳戶餘額","原子替換譯文"));
+   Files.setLastModifiedTime(replacement,Files.getLastModifiedTime(mappings));
+   Files.move(replacement,mappings,StandardCopyOption.REPLACE_EXISTING);
+   waitTranslation(editor[0],"原子替換譯文",10);
+   check(true,"external replacement with unchanged size and timestamp reloads");
+   Files.delete(mappings);
+   waitCount(editor[0],0);
+   Files.writeString(mappings,originalMapping);
+   waitTranslation(editor[0],"計算帳戶餘額",10);
+   Path data=root.resolve(".codei18n"),backup=root.resolve("mapping-backup");
+   Files.move(data,backup);
+   waitCount(editor[0],0);
+   Files.move(backup,data);
+   waitTranslation(editor[0],"計算帳戶餘額",10);
+   check(true,"external mapping file and directory deletion/recreation reloads");
+   Path config=data.resolve("config.json");
+   String originalConfig=Files.readString(config);
+   ui(()->{
+    project.getService(TranslationSettings.class).getState().language="";
+    TranslationService.getInstance(project).reload();
+   });
+   waitTranslation(editor[0],"计算账户余额");
+   Files.writeString(config,originalConfig.replace("zh-CN","zh-TW"));
+   waitTranslation(editor[0],"計算帳戶餘額",10);
+   Files.writeString(config,originalConfig);
+   waitTranslation(editor[0],"计算账户余额",10);
+   check(true,"external config language changes reload without VFS refresh");
    ui(()->{
     var hints=editor[0].getInlayModel().getBlockElementsInRange(0,document[0].getTextLength(),TranslationRenderer.class);
     java.awt.image.BufferedImage image=new java.awt.image.BufferedImage(700,300,java.awt.image.BufferedImage.TYPE_INT_ARGB);
@@ -90,27 +179,33 @@ public final class SmokeStarter implements ApplicationStarter {
     configurable.apply();configurable.disposeUIResources();
     check(true,"settings apply and dispose succeed");
     project.getService(TranslationSettings.class).getState().enabled=false;
-    project.getService(TranslationService.class).requestRefresh(false);
+    TranslationService.getInstance(project).refresh();
    });
    waitCount(editor[0],0);
    check(Arrays.equals(before,Files.readAllBytes(source)),"source file bytes unchanged");
    ui(()->EditorFactory.getInstance().releaseEditor(editor[0]));
-   Files.writeString(Path.of(System.getProperty("codei18n.smoke.result")),"PASS: IDEA platform load, Java PSI including Javadoc, two translation block inlays, zh-CN and zh-TW text, automatic source edit and VFS mapping reload, malformed mapping cleanup and recovery, Chinese paint PNG, disable clears inlays, source unchanged\n");
+   Files.writeString(Path.of(System.getProperty("codei18n.smoke.result")),"PASS: IDEA platform load, Java PSI including Javadoc, two translation block inlays, zh-CN and zh-TW text, automatic source edit, external mapping/config reload without VFS refresh, same-metadata replacement, file/directory deletion and recreation, malformed mapping cleanup and recovery, Chinese paint PNG, disable clears inlays, source unchanged\n");
    System.exit(0);
   } catch(Throwable e) {e.printStackTrace();System.exit(1);}
  }
- private static void refreshFile(Path path) {
-  ui(()->{var file=LocalFileSystem.getInstance().refreshAndFindFileByNioFile(path);file.refresh(false,false);});
- }
  private static void waitTranslation(Editor editor,String expected)throws Exception {
-  var textField=TranslationRenderer.class.getDeclaredField("text");textField.setAccessible(true);
-  long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(60);
+  waitTranslation(editor,expected,60);
+ }
+ private static void waitTranslation(Editor editor,String expected,int timeoutSeconds)throws Exception {
+  long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(timeoutSeconds);
   while(System.nanoTime()<end){boolean[] found={false};ui(()->{
    for(var hint:editor.getInlayModel().getBlockElementsInRange(0,editor.getDocument().getTextLength(),TranslationRenderer.class)) {
-    try {if(expected.equals(textField.get(hint.getRenderer())))found[0]=true;}catch(Exception e){throw new RuntimeException(e);}
+    if(expected.equals(hint.getRenderer().text()))found[0]=true;
    }
   });if(found[0]){check(true,"actual translation text: "+expected);return;}Thread.sleep(100);}
   throw new AssertionError("Timed out waiting for translation "+expected);
+ }
+ private static int count(Editor e) {
+  return e.getInlayModel().getBlockElementsInRange(0,e.getDocument().getTextLength(),TranslationRenderer.class).size();
+ }
+ private static Object field(Object owner,String name) {
+  try {var f=owner.getClass().getDeclaredField(name);f.setAccessible(true);return f.get(owner);}
+  catch(ReflectiveOperationException e){throw new RuntimeException(e);}
  }
  private static void waitCount(Editor e,int expected)throws Exception {
   long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(60);

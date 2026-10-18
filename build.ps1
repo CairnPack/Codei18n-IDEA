@@ -39,7 +39,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Test compilation failed.' }
 & $java -classpath "$testClasses;$classes;$sdk" dev.codei18n.idea.MappingIndexTest
 if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-[IO.Compression.ZipFile]::CreateFromDirectory($classes, (Join-Path $package 'codei18n-idea-0.1.0.jar'))
-$zip = Join-Path $distribution 'codei18n-idea-0.1.0.zip'
+[IO.Compression.ZipFile]::CreateFromDirectory($classes, (Join-Path $package 'codei18n-idea-0.1.1.jar'))
+$zip = Join-Path $distribution 'codei18n-idea-0.1.1.zip'
 Compress-Archive -Path (Join-Path $output 'package/codei18n-idea') -DestinationPath $zip -Force
 Write-Output "Plugin: $zip"

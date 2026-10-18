@@ -7,9 +7,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /** Immutable, conservative reverse index of the upstream ID -> language -> text format. */
 public final class MappingIndex {
+    private static final Pattern WHITESPACE = Pattern.compile("(?U)\\s+");
     private final String language;
     private final Map<String, String> translations;
 
@@ -55,7 +57,7 @@ public final class MappingIndex {
         if (value.startsWith("//")) value = value.substring(2);
         if (value.startsWith("/*")) value = value.substring(2);
         if (value.endsWith("*/")) value = value.substring(0, value.length() - 2);
-        return value.replaceAll("(?U)\\s+", " ").strip();
+        return WHITESPACE.matcher(value).replaceAll(" ").strip();
     }
 
     private static String stripBom(String text) {

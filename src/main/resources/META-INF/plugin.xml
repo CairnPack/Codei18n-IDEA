@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>dev.codei18n.idea</id>
     <name>CodeI18n Comment Translations</name>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
     <vendor>CodeI18n IDEA Contributors</vendor>
     <description><![CDATA[
         Display translations from .codei18n/mappings.json below source comments without changing source files.

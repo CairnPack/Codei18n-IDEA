@@ -6,7 +6,7 @@
 
 当前版本针对 **IntelliJ IDEA 2026.2（build 262）** 编译。其他版本暂未声明兼容。
 
-1. 构建或取得 `build/distributions/codei18n-idea-0.1.0.zip`。
+1. 构建或取得 `build/distributions/codei18n-idea-0.1.1.zip`。
 2. IDEA → Settings → Plugins → 齿轮 → Install Plugin from Disk，选择 ZIP。
 3. 按 IDEA 提示重启，打开含 `.codei18n` 的项目与源码文件。
 4. Settings → CodeI18n 可关闭显示，或填写 `zh-CN`、`zh-TW`、`ja` 等语言代码。留空时跟随项目配置。
@@ -40,7 +40,7 @@
 
 显示语言优先级：IDEA 项目设置 → config 的 `localLanguage` → mappings 的 `targetLanguage` → `zh-CN`。原文语言优先级：config 的 `sourceLanguage` → mappings 的 `sourceLanguage` → `en`。
 
-插件从源码所在目录向项目根目录查找最近的 `.codei18n`，支持单仓库多个子项目。读取失败会通知，并撤下该缓存的译文。修改源码后会立即撤下旧提示，并在编辑停止约 350ms 后重新匹配。映射文件经 IDEA 文件系统检测到变化后会刷新，也可以使用 Tools → Reload CodeI18n Translations 手动刷新。
+插件从源码所在目录向项目根目录查找最近的 `.codei18n`，支持单仓库多个子项目。CLI 原地改写 JSON 时读到不完整内容会短暂重试，文件稳定后仍无效才通知，并撤下该缓存的译文。修改某条注释会立即撤下该注释的译文，其他译文保持不动，编辑停止约 350ms 后重新匹配。除监听 IDEA 文件系统事件外，插件每秒在后台检查已打开源码对应的 mapping/config 文件元数据和最近的缓存目录；检测到变化后刷新译文，外部 CLI 更新通常约 1–2 秒生效，无需切换窗口或手动刷新。文件内容被原地改写且大小、时间戳均保持不变时，元数据检查可能无法发现变化，可使用 Tools → Reload CodeI18n Translations 强制重新加载。
 
 ## 生成缺失译文
 
@@ -87,4 +87,4 @@ gradle -PideaHome="C:/Program Files/JetBrains/IntelliJ IDEA 2026.2.1" buildPlugi
 .\test-ide.ps1 -IdeaHome 'C:\Program Files\JetBrains\IntelliJ IDEA 2026.2.1'
 ```
 
-它在 `build/integration` 下使用隔离的 IDEA 配置、系统目录、插件目录和示例项目，启动真实 IDEA 平台及自带的 Java、Kotlin 插件，检查 PSI、实际 block inlay、Javadoc/KDoc 引用颜色、注释包装、代码片段不误高亮及主题配色变化；不会安装到日常使用的 IDEA 配置。结果、绘制 PNG 与日志保存在该目录。测试辅助插件只在隔离环境加载，不进入发行 ZIP。
+它在 `build/integration` 下使用隔离的 IDEA 配置、系统目录、插件目录和示例项目，启动真实 IDEA 平台及自带的 Java、Kotlin 插件，检查 PSI、实际 block inlay、Javadoc/KDoc 引用颜色、注释包装、代码片段不误高亮及主题配色变化，以及不主动刷新 VFS 的外部 mapping/config 修改、保留大小和时间戳的文件替换、文件/目录删除重建、无效 JSON 恢复；不会安装到日常使用的 IDEA 配置。结果、绘制 PNG 与日志保存在该目录。测试辅助插件只在隔离环境加载，不进入发行 ZIP。
