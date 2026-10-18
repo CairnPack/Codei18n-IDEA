@@ -82,6 +82,7 @@ public final class HighlightingTest {
                 } finally { inlay.dispose(); }
                 verifyJavadocReferences(comments.get(0), editor);
                 verifyKdoc(project, editor, imagePath.resolveSibling("kdoc-render.png"));
+                verifyDocMarkup(project, editor, comments.get(0), imagePath.resolveSibling("csharp-render.png"));
             } finally { ((com.intellij.openapi.editor.ex.EditorEx) editor).setColorsScheme(previousScheme); }
         } catch (Exception e) { throw new RuntimeException(e); }
     }
@@ -168,6 +169,86 @@ public final class HighlightingTest {
         var styles = (TextAttributes[]) stylesMethod.invoke(renderer, editor);
         require(!Color.ORANGE.equals(styles[ordinary.indexOf("ordinary")].getForegroundColor()),
                 "ordinary Kotlin comment brackets are not links");
+    }
+
+    /** C3: HTML/XML doc markup is simplified for display, code is verbatim, and it works without a lexer (no PSI). */
+    private static void verifyDocMarkup(Project project, Editor editor, PsiComment javaDoc, Path imagePath) throws Exception {
+        var markup = DefaultLanguageHighlighterColors.DOC_COMMENT_MARKUP;
+        var tagValue = DefaultLanguageHighlighterColors.DOC_COMMENT_TAG_VALUE;
+        editor.getColorsScheme().setAttributes(markup, new TextAttributes(Color.PINK, null, null, null, Font.PLAIN));
+        editor.getColorsScheme().setAttributes(tagValue, new TextAttributes(Color.GREEN, null, null, null, Font.PLAIN));
+        var constructor = TranslationRenderer.class.getDeclaredConstructors()[0];
+        constructor.setAccessible(true);
+        var stylesMethod = TranslationRenderer.class.getDeclaredMethod("styles", Editor.class);
+        stylesMethod.setAccessible(true);
+
+        String javadoc = "/**\n * 计算总和。\n * <p>\n * 使用 <code>sum</code> 计算。\n * <pre>{@code\n * int x = a[0];\n * }</pre>\n"
+                + " * @throws IllegalStateException 状态错误\n */";
+        var highlighting = translate(javaDoc, javadoc);
+        String display = (String) call(highlighting, "display");
+        require(display != null && !display.contains("<p>") && !display.contains("<code>") && !display.contains("<pre>")
+                && !display.contains("{@code\n"), "Javadoc HTML tags are simplified for display: " + display);
+        var renderer = (TranslationRenderer) constructor.newInstance(javadoc, "zh-CN", highlighting);
+        require(javadoc.equals(renderer.text()), "renderer text() stays the raw translation");
+        var styles = (TextAttributes[]) stylesMethod.invoke(renderer, editor);
+        require(styles.length == display.length(), "styles index the display text");
+        require(Color.PINK.equals(styles[display.indexOf("sum")].getForegroundColor()), "<code>sum</code> is code-styled");
+        require(Color.PINK.equals(styles[display.indexOf("a[0]")].getForegroundColor()), "<pre>{@code} block is code-styled");
+        require(!java.util.Objects.equals(styles[display.indexOf("IllegalStateException")].getForegroundColor(),
+                styles[display.indexOf("状态错误")].getForegroundColor()), "@throws reference is highlighted");
+
+        var kotlin = com.intellij.lang.Language.findLanguageByID("kotlin");
+        var kotlinFile = PsiFileFactory.getInstance(project).createFileFromText("Markup.kt", kotlin, "/** Doc. */\nfun f() {}");
+        var kdoc = new ArrayList<PsiComment>();
+        kotlinFile.accept(new PsiRecursiveElementWalkingVisitor() {
+            @Override public void visitElement(PsiElement element) {
+                if (element instanceof PsiComment comment) kdoc.add(comment);
+                else super.visitElement(element);
+            }
+        });
+        String fenced = "/**\n * 示例：\n * ```kotlin\n * val y = list[x]\n * ```\n * @property name 名称\n */";
+        renderer = (TranslationRenderer) constructor.newInstance(fenced, "zh-CN", translate(kdoc.get(0), fenced));
+        styles = (TextAttributes[]) stylesMethod.invoke(renderer, editor);
+        require(Color.PINK.equals(styles[fenced.indexOf("[x]")].getForegroundColor()), "[x] in a KDoc code fence is code, not a link");
+
+        // No-PSI fallback (C2): the family comes from the file name, so no language plugin or lexer is needed.
+        var type = Class.forName("dev.codei18n.idea.CommentHighlighting", true, TranslationRenderer.class.getClassLoader());
+        var plain = type.getDeclaredMethod("plain", String.class, String.class, String.class, String.class);
+        plain.setAccessible(true);
+        String csharp = "/// <summary>\n/// 把 <paramref name=\"a\"/> 加到 <c>b</c>。\n/// </summary>\n/// <param name=\"a\">第一个数</param>\n"
+                + "/// <returns>和。</returns>";
+        highlighting = plain.invoke(null, "doc", csharp, "src/Calc.cs", "zh-CN");
+        display = (String) call(highlighting, "display");
+        require("/// 把 a 加到 b。\n/// 参数 a: 第一个数\n/// 返回: 和。".equals(display), "C# XML doc shown concisely: " + display);
+        renderer = (TranslationRenderer) constructor.newInstance(csharp, "zh-CN", highlighting);
+        styles = (TextAttributes[]) stylesMethod.invoke(renderer, editor);
+        require(Color.GREEN.equals(styles[display.indexOf('a')].getForegroundColor()), "<paramref> highlighted as reference");
+        require(Color.PINK.equals(styles[display.indexOf('b')].getForegroundColor()), "<c> shown as code");
+        require(Color.GREEN.equals(styles[display.indexOf("a: ")].getForegroundColor()), "<param> name highlighted");
+        var rawRenderer = (TranslationRenderer) constructor.newInstance(csharp, "zh-CN", plain.invoke(null, "doc", csharp, "", "zh-CN"));
+        var rawInlay = editor.getInlayModel().addBlockElement(0, true, false, 0, rawRenderer);
+        int rawHeight = rawInlay.getHeightInPixels();
+        rawInlay.dispose();
+        var inlay = editor.getInlayModel().addBlockElement(0, true, false, 0, renderer);
+        require(inlay != null && inlay.getHeightInPixels() < rawHeight, "C# display text (not the raw XML) is laid out");
+        try {
+            var image = new BufferedImage(inlay.getWidthInPixels(), inlay.getHeightInPixels(), BufferedImage.TYPE_INT_ARGB);
+            var graphics = image.createGraphics();
+            try {
+                graphics.setColor(Color.DARK_GRAY);
+                graphics.fillRect(0, 0, image.getWidth(), image.getHeight());
+                renderer.paint(inlay, (java.awt.Graphics) graphics, new Rectangle(0, 0, image.getWidth(), image.getHeight()),
+                        new TextAttributes());
+            } finally { graphics.dispose(); }
+            javax.imageio.ImageIO.write(image, "png", imagePath.toFile());
+        } finally { inlay.dispose(); }
+
+        String dart = "/// 返回 [Foo] 的副本。\n/// 使用 `list[0]` 访问。";
+        highlighting = plain.invoke(null, "doc", dart, "lib/foo.dart", "zh-CN");
+        renderer = (TranslationRenderer) constructor.newInstance(dart, "zh-CN", highlighting);
+        styles = (TextAttributes[]) stylesMethod.invoke(renderer, editor);
+        require(Color.GREEN.equals(styles[dart.indexOf("Foo")].getForegroundColor()), "Dartdoc [ref] highlighted without Dart plugin");
+        require(Color.PINK.equals(styles[dart.indexOf("list[0]")].getForegroundColor()), "Dartdoc inline code is code, not a reference");
     }
 
     private static Object translate(PsiComment comment, String text) throws Exception {

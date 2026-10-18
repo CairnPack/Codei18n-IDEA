@@ -1,7 +1,7 @@
 plugins { java }
 
 group = "dev.codei18n"
-version = providers.gradleProperty("pluginVersion").getOrElse("0.1.0")
+version = providers.gradleProperty("pluginVersion").getOrElse("0.2.0")
 
 // Compile against an installed IDEA SDK; no IDE download or third-party runtime dependencies.
 val ideaHome = providers.gradleProperty("ideaHome").orElse(providers.environmentVariable("IDEA_HOME"))
@@ -10,7 +10,8 @@ dependencies {
     testImplementation(fileTree("${ideaHome.orNull}/lib") { include("*.jar") })
 }
 java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
-tasks.withType<JavaCompile>().configureEach { options.encoding = "UTF-8" }
+// 输出 Java 21 字节码：since-build 251（IDEA 2025.1）运行在 JBR 21 上。
+tasks.withType<JavaCompile>().configureEach { options.encoding = "UTF-8"; options.release = 21 }
 
 tasks.processResources {
     inputs.property("pluginVersion", project.version.toString())

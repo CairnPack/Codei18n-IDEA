@@ -11,9 +11,16 @@ New-Item -ItemType Directory -Force "$root/config","$root/system","$root/log","$
 foreach($old in @("$root/result.txt","$root/log/idea.log")){if(Test-Path -LiteralPath $old){Remove-Item -LiteralPath $old -Force}}
 Copy-Item "$PSScriptRoot/examples/demo/*" "$root/project" -Recurse -Force
 Copy-Item "$PSScriptRoot/examples/demo/.codei18n" "$root/project" -Recurse -Force
+# C5 language samples: a nested CodeI18n root, refreshed on every run (the test rewrites sources and .codei18n).
+foreach($fresh in @("$root/project/languages","$root/branch-switch")){if(Test-Path -LiteralPath $fresh){Remove-Item -LiteralPath $fresh -Recurse -Force}}
+Copy-Item "$PSScriptRoot/examples/languages" "$root/project/languages" -Recurse -Force
+if(Test-Path -LiteralPath "$root/project/languages/.codei18n/cache"){Remove-Item -LiteralPath "$root/project/languages/.codei18n/cache" -Recurse -Force}
+Copy-Item "$PSScriptRoot/integration/fixtures/branch-switch" "$root/branch-switch" -Recurse -Force
+# Replace, not merge: a jar left over from another plugin version would load twice.
+if(Test-Path -LiteralPath "$root/plugins/codei18n-idea"){Remove-Item -LiteralPath "$root/plugins/codei18n-idea" -Recurse -Force}
 Copy-Item "$PSScriptRoot/build/package/codei18n-idea" "$root/plugins" -Recurse -Force
 $sdkClasspath=(Get-ChildItem "$IdeaHome/lib" -Filter '*.jar' | ForEach-Object FullName) -join ';'
-$compileArgs=@('--release','21','-encoding','UTF-8','-classpath',"$PSScriptRoot/build/classes;$sdkClasspath",'-d',"$root/harness-classes","$PSScriptRoot/integration/SmokeStarter.java","$PSScriptRoot/integration/HighlightingTest.java")
+$compileArgs=@('--release','21','-encoding','UTF-8','-classpath',"$PSScriptRoot/build/classes;$sdkClasspath",'-d',"$root/harness-classes","$PSScriptRoot/integration/SmokeStarter.java","$PSScriptRoot/integration/HighlightingTest.java","$PSScriptRoot/integration/DisplayModeTest.java","$PSScriptRoot/integration/LanguageSamplesTest.java")
 $compileArgs | ForEach-Object {'"'+$_.Replace('\','/')+'"'} | Set-Content "$root/compiler.args" -Encoding utf8
 & "$JdkHome/bin/java.exe" -m jdk.compiler/com.sun.tools.javac.Main "@$root/compiler.args"
 if($LASTEXITCODE -ne 0){throw 'Harness compilation failed'}
@@ -34,6 +41,9 @@ idea.initially.ask.config=false
 idea.privacy.policy.text=<!--999.999-->
 codei18n.smoke.project=$portable/project
 codei18n.smoke.result=$portable/result.txt
+codei18n.smoke.languages=$portable/project/languages
+codei18n.smoke.branch=$portable/branch-switch
+codei18n.smoke.screenshots=$portable/screenshots
 "@ | Set-Content "$root/idea.properties" -Encoding ascii
 $launch=(Get-Content "$IdeaHome/product-info.json" -Raw | ConvertFrom-Json).launch[0]
 $classpath=($launch.bootClassPathJarNames | ForEach-Object {Join-Path "$IdeaHome/lib" $_}) -join ';'

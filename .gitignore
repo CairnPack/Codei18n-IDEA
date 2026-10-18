@@ -4,3 +4,5 @@ build/
 *.iml
 .reference/
 local.properties
+# 示例项目 .codei18n 下的增量扫描缓存，可随时删除，不入库
+examples/**/.codei18n/cache/

@@ -1,13 +1,13 @@
 <idea-plugin>
     <id>dev.codei18n.idea</id>
     <name>CodeI18n Comment Translations</name>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
     <vendor>CodeI18n IDEA Contributors</vendor>
     <description><![CDATA[
         Display translations from .codei18n/mappings.json below source comments without changing source files.
         Supports automatic reload, project language selection and nested .codei18n roots.
     ]]></description>
-    <idea-version since-build="262" until-build="262.*"/>
+    <idea-version since-build="251" until-build="262.*"/>
     <depends>com.intellij.modules.platform</depends>
     <extensions defaultExtensionNs="com.intellij">
         <postStartupActivity implementation="dev.codei18n.idea.TranslationStartup"/>
@@ -19,6 +19,17 @@
         <action id="CodeI18n.Refresh" class="dev.codei18n.idea.RefreshTranslationsAction"
                 text="Reload CodeI18n Translations" description="Reload local comment translations">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <action id="CodeI18n.ToggleTranslations" class="dev.codei18n.idea.ToggleTranslationsAction"
+                text="Show CodeI18n Translations" description="Show or hide comment translations">
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt shift O"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+        <action id="CodeI18n.ToggleDisplayMode" class="dev.codei18n.idea.ToggleDisplayModeAction"
+                text="Replace Comments with CodeI18n Translations"
+                description="Switch between translations below comments and in place of them">
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt shift P"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </action>
     </actions>
 </idea-plugin>

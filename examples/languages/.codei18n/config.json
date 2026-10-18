@@ -1,0 +1,12 @@
+{
+  "projectId": "8dab38ad-be8a-4d6d-b281-861018a61628",
+  "sourceLanguage": "en",
+  "localLanguage": "zh-CN",
+  "excludePatterns": [
+    ".git/**",
+    "vendor/**",
+    ".codei18n/**"
+  ],
+  "translationProvider": "mock",
+  "batchSize": 10
+}

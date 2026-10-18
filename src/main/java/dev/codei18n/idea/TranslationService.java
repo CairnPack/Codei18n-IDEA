@@ -1,5 +1,7 @@
 package dev.codei18n.idea;
 
+import com.google.gson.JsonParseException;
+import com.intellij.ide.todo.TodoConfiguration;
 import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
 import com.intellij.openapi.Disposable;
@@ -10,125 +12,192 @@ import com.intellij.openapi.components.Service;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.EditorFactory;
-import com.intellij.openapi.editor.Inlay;
-import com.intellij.openapi.editor.event.DocumentEvent;
-import com.intellij.openapi.editor.event.DocumentListener;
+import com.intellij.openapi.editor.colors.EditorColorsManager;
 import com.intellij.openapi.editor.event.EditorFactoryEvent;
 import com.intellij.openapi.editor.event.EditorFactoryListener;
-import com.intellij.openapi.editor.event.VisibleAreaEvent;
-import com.intellij.openapi.editor.event.VisibleAreaListener;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Disposer;
-import com.intellij.openapi.vfs.VirtualFileManager;
-import com.intellij.openapi.vfs.LocalFileSystem;
-import com.intellij.openapi.vfs.newvfs.BulkFileListener;
-import com.intellij.openapi.vfs.newvfs.events.VFileEvent;
-import com.intellij.psi.PsiComment;
-import com.intellij.psi.PsiElement;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiRecursiveElementWalkingVisitor;
 import com.intellij.util.Alarm;
 import com.intellij.util.concurrency.AppExecutorUtil;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * Coordinates a debounced refresh: collect open editors (EDT), load mappings (pooled thread),
+ * match comments (non-blocking read action), then show inlays and report errors (EDT).
+ */
 @Service(Service.Level.PROJECT)
 public final class TranslationService implements Disposable {
+    private static final int DEBOUNCE_MS = 350;
+    private static final int MAX_DOCUMENT_LENGTH = 2 * 1024 * 1024;
+    private static final String NOTIFICATION_GROUP = "CodeI18n";
+
     private record Target(Editor editor, Document document, Path path) {}
-    private record Hint(int offset, String text, String language, CommentHighlighting.Result highlighting) {}
-    private record Plan(Target target, long stamp, List<Hint> hints) {}
-    private record Result(List<Plan> plans, Map<Path, String> errors) {}
+    /**
+     * Mapping indexes for one refresh: per open source (null when unavailable), its root, the SHA-1 of its saved bytes
+     * (absent while the document has unsaved changes), plus load errors per root.
+     */
+    private record Loaded(Map<Path, MappingIndex> bySource, Map<Path, Path> roots, Map<Path, String> hashes,
+                          Map<Path, String> errors) {}
+    private record Plan(Target target, long stamp, List<TranslationHint> hints) {}
+
     private final Project project;
     private final Alarm alarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD, this);
     private final MappingRepository repository = new MappingRepository();
-    private final Map<Editor, List<Inlay<?>>> inlays = new HashMap<>();
     private final Map<Path, String> reportedErrors = new HashMap<>();
-    private final Set<Editor> attachedEditors = new HashSet<>();
     private final AtomicLong generation = new AtomicLong();
-    private boolean started;
+    private InlayPresenter presenter; // Set once on the EDT by start(); null until then.
     private volatile boolean disposed;
+    private volatile List<Path> watchedSources = List.of();
 
     public TranslationService(Project project) { this.project = project; }
 
-    public void start() {
-        ApplicationManager.getApplication().invokeLater(() -> {
-            if (disposed || project.isDisposed() || started) return;
-            started = true;
-            project.getMessageBus().connect(this).subscribe(
-                    com.intellij.openapi.editor.colors.EditorColorsManager.TOPIC, scheme -> requestRefresh(false));
-            project.getMessageBus().connect(this).subscribe(
-                    com.intellij.ide.todo.TodoConfiguration.PROPERTY_CHANGE, event -> requestRefresh(false));
-            EditorFactory factory = EditorFactory.getInstance();
-            factory.getEventMulticaster().addDocumentListener(new DocumentListener() {
-                @Override public void documentChanged(DocumentEvent event) {
-                    if (Arrays.stream(factory.getEditors(event.getDocument(), project)).findAny().isPresent()) {
-                        for (Editor editor : factory.getEditors(event.getDocument(), project)) clear(editor);
-                        requestRefresh(false);
-                    }
-                }
-            }, this);
-            factory.addEditorFactoryListener(new EditorFactoryListener() {
-                @Override public void editorCreated(EditorFactoryEvent event) {
-                    if (event.getEditor().getProject() == project) {
-                        attach(event.getEditor());
-                        requestRefresh(false);
-                    }
-                }
-                @Override public void editorReleased(EditorFactoryEvent event) {
-                    clear(event.getEditor());
-                    attachedEditors.remove(event.getEditor());
-                }
-            }, this);
-            project.getMessageBus().connect(this).subscribe(VirtualFileManager.VFS_CHANGES, new BulkFileListener() {
-                @Override public void after(List<? extends VFileEvent> events) {
-                    // Include directory rename/removal and source moves (nested root may change).
-                    if (!events.isEmpty()) requestRefresh(true);
-                }
-            });
-            for (Editor editor : factory.getAllEditors()) if (editor.getProject() == project) attach(editor);
-            requestRefresh(false);
-        }, ModalityState.any());
+    public static TranslationService getInstance(Project project) {
+        return project.getService(TranslationService.class);
     }
 
-    private void attach(Editor editor) {
-        if (!attachedEditors.add(editor)) return;
-        editor.getScrollingModel().addVisibleAreaListener(new VisibleAreaListener() {
-            @Override public void visibleAreaChanged(VisibleAreaEvent event) {
-                if (event.getOldRectangle() == null
-                        || event.getOldRectangle().width != event.getNewRectangle().width) {
-                    for (Inlay<?> inlay : inlays.getOrDefault(editor, List.of())) {
-                        if (inlay.isValid()) inlay.update();
-                    }
-                }
+    public void start() {
+        ApplicationManager.getApplication().invokeLater(this::connect, ModalityState.any());
+    }
+
+    /** Re-matches open editors against the cached mappings. */
+    public void refresh() {
+        if (!isStale()) schedule();
+    }
+
+    /** Re-reads every mapping file, then refreshes. */
+    public void reload() {
+        if (isStale()) return;
+        repository.invalidate();
+        schedule();
+    }
+
+    /**
+     * Applies the display settings (on/off, mode) to open editors at once, without reopening them, then re-matches.
+     * Turning translations off clears them immediately; switching mode re-presents what is already shown.
+     */
+    public void applySettings() {
+        Runnable apply = () -> {
+            if (isStale() || presenter == null) return;
+            TranslationSettings settings = TranslationSettings.getInstance(project);
+            if (!settings.isEnabled()) presenter.clearAll();
+            presenter.setMode(settings.displayMode());
+            refresh();
+        };
+        var application = ApplicationManager.getApplication();
+        if (application.isDispatchThread()) apply.run();
+        else application.invokeLater(apply, ModalityState.any());
+    }
+
+    public void setTranslationsEnabled(boolean enabled) {
+        TranslationSettings.getInstance(project).setEnabled(enabled);
+        applySettings();
+    }
+
+    public void setDisplayMode(DisplayMode mode) {
+        TranslationSettings.getInstance(project).setDisplayMode(mode);
+        applySettings();
+    }
+
+    public void toggleTranslations() {
+        setTranslationsEnabled(!TranslationSettings.getInstance(project).isEnabled());
+    }
+
+    public void toggleDisplayMode() {
+        setDisplayMode(TranslationSettings.getInstance(project).displayMode().toggled());
+    }
+
+    private void reload(Collection<Path> roots) {
+        if (isStale()) return;
+        roots.forEach(repository::invalidate);
+        schedule();
+    }
+
+    private void connect() {
+        if (isStale() || presenter != null) return;
+        presenter = new InlayPresenter(project, this::refresh);
+        Disposer.register(this, presenter);
+        Disposer.register(this, new MappingWatcher(project, () -> watchedSources, new MappingWatcher.Listener() {
+            @Override public void rootsChanged(Set<Path> roots) { reload(roots); }
+            @Override public void sourcesMoved() { refresh(); }
+        }));
+        var bus = project.getMessageBus().connect(this);
+        bus.subscribe(EditorColorsManager.TOPIC, scheme -> restyle());
+        bus.subscribe(TodoConfiguration.PROPERTY_CHANGE, event -> restyle());
+        EditorFactory factory = EditorFactory.getInstance();
+        factory.addEditorFactoryListener(new EditorFactoryListener() {
+            @Override public void editorCreated(EditorFactoryEvent event) {
+                if (event.getEditor().getProject() != project) return;
+                presenter.attach(event.getEditor());
+                refresh();
+            }
+            @Override public void editorReleased(EditorFactoryEvent event) {
+                presenter.release(event.getEditor());
+                if (event.getEditor().getProject() == project) refresh();
             }
         }, this);
+        for (Editor editor : factory.getAllEditors()) if (editor.getProject() == project) presenter.attach(editor);
+        refresh();
     }
 
-    public void requestRefresh(boolean invalidate) {
-        if (invalidate) repository.invalidate();
-        long revision = generation.incrementAndGet();
+    private void restyle() {
         ApplicationManager.getApplication().invokeLater(() -> {
-            if (disposed || project.isDisposed() || revision != generation.get()) return;
-            alarm.cancelAllRequests();
-            alarm.addRequest(() -> refresh(revision), 350);
+            if (!isStale() && presenter != null) presenter.restyle();
         }, ModalityState.any());
     }
 
-    private void refresh(long revision) {
-        if (disposed || project.isDisposed()) return;
-        TranslationSettings.Values settings = project.getService(TranslationSettings.class).getState();
-        if (!settings.enabled || project.getBasePath() == null) { clearAll(); return; }
-        String language = settings.language == null ? "" : settings.language;
+    private void schedule() {
+        long revision = generation.incrementAndGet();
+        ApplicationManager.getApplication().invokeLater(() -> {
+            if (isStale(revision)) return;
+            alarm.cancelAllRequests();
+            alarm.addRequest(() -> refreshNow(revision), DEBOUNCE_MS);
+        }, ModalityState.any());
+    }
+
+    private void refreshNow(long revision) {
+        if (isStale(revision) || presenter == null) return;
+        TranslationSettings settings = TranslationSettings.getInstance(project);
+        if (!settings.isEnabled() || project.getBasePath() == null) {
+            watchedSources = List.of();
+            presenter.clearAll();
+            return;
+        }
+        List<Target> targets = openTargets();
+        watchedSources = targets.stream().map(Target::path).distinct().toList();
         Path base = Path.of(project.getBasePath());
+        String language = settings.language();
+        // Disk I/O and JSON parsing are outside the read lock and outside the EDT.
+        AppExecutorUtil.getAppExecutorService().execute(() -> {
+            Loaded loaded = load(targets, base, language, revision);
+            if (loaded == null) return;
+            ReadAction.nonBlocking(() -> plan(targets, loaded))
+                    .withDocumentsCommitted(project)
+                    .expireWith(this)
+                    .expireWhen(() -> isStale(revision))
+                    .coalesceBy(this)
+                    .finishOnUiThread(ModalityState.any(), plans -> {
+                        if (isStale(revision)) return;
+                        apply(plans);
+                        report(loaded.errors);
+                    })
+                    .submit(AppExecutorUtil.getAppExecutorService());
+        });
+    }
+
+    private List<Target> openTargets() {
         List<Target> targets = new ArrayList<>();
         for (Editor editor : EditorFactory.getInstance().getAllEditors()) {
             if (editor.getProject() != project || editor.isDisposed() || editor.isViewer()) continue;
@@ -137,98 +206,110 @@ public final class TranslationService implements Disposable {
                 targets.add(new Target(editor, editor.getDocument(), Path.of(file.getPath())));
             }
         }
-        // Disk I/O and JSON parsing are outside the read lock and outside the EDT.
-        AppExecutorUtil.getAppExecutorService().execute(() -> {
-            if (disposed || revision != generation.get()) return;
-            Map<Path, MappingIndex> indexes = new HashMap<>();
-            Map<Path, String> errors = new HashMap<>();
-            Set<Path> loaded = new HashSet<>();
-            Map<Path, MappingIndex> byFile = new HashMap<>();
-            for (Target target : targets) {
-                if (disposed || revision != generation.get()) return;
-                Path root = MappingRepository.findRoot(target.path, base);
-                if (root == null) continue;
-                if (loaded.add(root)) {
-                    // NIO reads alone do not register files with IDEA's VFS. Register the
-                    // cache directory/files so external CLI edits produce VFS change events.
-                    var local = LocalFileSystem.getInstance();
-                    var directory = local.refreshAndFindFileByNioFile(root.resolve(".codei18n"));
-                    if (directory != null) directory.getChildren();
-                    local.refreshAndFindFileByNioFile(root.resolve(".codei18n/mappings.json"));
-                    local.refreshAndFindFileByNioFile(root.resolve(".codei18n/config.json"));
-                    try { indexes.put(root, repository.load(root, language)); }
-                    catch (java.io.IOException | IllegalArgumentException | com.google.gson.JsonParseException ex) {
-                        errors.put(root, ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
-                    }
-                }
-                byFile.put(target.path, indexes.get(root));
-            }
-            if (disposed || revision != generation.get()) return;
-            ReadAction.nonBlocking(() -> {
-                List<Plan> plans = new ArrayList<>();
-                for (Target target : targets) {
-                    ProgressManager.checkCanceled();
-                    List<Hint> hints = new ArrayList<>();
-                    MappingIndex index = byFile.get(target.path);
-                    var psi = PsiDocumentManager.getInstance(project).getPsiFile(target.document);
-                    if (index != null && psi != null && target.document.getTextLength() <= 2 * 1024 * 1024) {
-                        psi.accept(new PsiRecursiveElementWalkingVisitor() {
-                            @Override public void visitElement(PsiElement element) {
-                                ProgressManager.checkCanceled();
-                                if (element instanceof PsiComment comment) {
-                                    String translated = index.translation(comment.getText());
-                                    if (translated != null) hints.add(new Hint(comment.getTextRange().getEndOffset(),
-                                            translated, index.language(), CommentHighlighting.translate(comment, translated)));
-                                } else super.visitElement(element);
-                            }
-                        });
-                    }
-                    plans.add(new Plan(target, target.document.getModificationStamp(), hints));
-                }
-                return new Result(plans, errors);
-            }).withDocumentsCommitted(project).expireWith(this)
-                    .expireWhen(() -> disposed || revision != generation.get())
-                    .coalesceBy(this).finishOnUiThread(ModalityState.any(), result -> {
-                        if (disposed || revision != generation.get()) return;
-                        for (Plan plan : result.plans) {
-                            Editor editor = plan.target.editor;
-                            if (editor.isDisposed() || plan.stamp != plan.target.document.getModificationStamp()) continue;
-                            clear(editor);
-                            List<Inlay<?>> created = new ArrayList<>();
-                            editor.getInlayModel().execute(true, () -> {
-                                for (Hint hint : plan.hints) {
-                                    Inlay<?> inlay = editor.getInlayModel().addBlockElement(hint.offset, true, false, 0,
-                                            new TranslationRenderer(hint.text, hint.language, hint.highlighting));
-                                    if (inlay != null) created.add(inlay);
-                                }
-                            });
-                            inlays.put(editor, created);
-                        }
-                        result.errors.forEach((root, message) -> {
-                            if (!message.equals(reportedErrors.get(root))) {
-                                NotificationGroupManager.getInstance().getNotificationGroup("CodeI18n")
-                                        .createNotification("Cannot load CodeI18n translations",
-                                                com.intellij.openapi.util.text.StringUtil.escapeXmlEntities(root + ": " + message),
-                                                NotificationType.WARNING).notify(project);
-                            }
-                        });
-                        reportedErrors.clear();
-                        reportedErrors.putAll(result.errors);
-                    }).submit(AppExecutorUtil.getAppExecutorService());
-        });
+        return targets;
     }
 
-    private void clear(Editor editor) {
-        List<Inlay<?>> previous = inlays.remove(editor);
-        if (previous != null) for (Inlay<?> inlay : previous) if (inlay.isValid()) Disposer.dispose(inlay);
+    /** Resolves each source's nearest root and loads it once; null when a newer refresh superseded this one. */
+    private Loaded load(List<Target> targets, Path base, String language, long revision) {
+        Map<Path, MappingIndex> byRoot = new HashMap<>();
+        Map<Path, MappingIndex> bySource = new HashMap<>();
+        Map<Path, Path> roots = new HashMap<>();
+        Map<Path, String> hashes = new HashMap<>();
+        Map<Path, String> errors = new HashMap<>();
+        for (Target target : targets) {
+            if (isStale(revision)) return null;
+            Path root = CodeI18nFiles.findRoot(target.path, base);
+            if (root == null) continue;
+            if (!byRoot.containsKey(root)) byRoot.put(root, loadRoot(root, language, errors));
+            bySource.put(target.path, byRoot.get(root));
+            roots.put(target.path, root);
+            String hash = savedContentHash(target);
+            if (hash != null) hashes.put(target.path, hash);
+        }
+        if (isStale(revision)) return null;
+        repository.retain(byRoot.keySet());
+        return new Loaded(bySource, roots, hashes, errors);
     }
-    private void clearAll() { for (Editor editor : List.copyOf(inlays.keySet())) clear(editor); }
+
+    private MappingIndex loadRoot(Path root, String language, Map<Path, String> errors) {
+        MappingWatcher.register(root);
+        try {
+            return repository.load(root, language);
+        } catch (IOException | IllegalArgumentException | JsonParseException ex) {
+            errors.put(root, ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * SHA-1 of the file bytes on disk when the document shows exactly those bytes, else null: index.json positions are
+     * only trusted for an unchanged file (docs/index-format.md §9). The document is unsaved, or IDEA has not yet
+     * reloaded an external write (e.g. a branch switch that also rewrote .codei18n): then the disk bytes describe
+     * another text, and positions from a matching index would attach translations to the wrong comments.
+     */
+    private static String savedContentHash(Target target) {
+        try {
+            var documents = FileDocumentManager.getInstance();
+            if (documents.isDocumentUnsaved(target.document)) return null;
+            var file = documents.getFile(target.document);
+            long size = Files.size(target.path);
+            if (file == null || file.getLength() != size
+                    || file.getTimeStamp() != Files.getLastModifiedTime(target.path).toMillis()) return null;
+            if (size > MAX_DOCUMENT_LENGTH) return null;
+            return CommentText.sha1(Files.readAllBytes(target.path));
+        } catch (IOException | RuntimeException ex) {
+            return null;
+        }
+    }
+
+    private List<Plan> plan(List<Target> targets, Loaded loaded) {
+        List<Plan> plans = new ArrayList<>();
+        for (Target target : targets) {
+            ProgressManager.checkCanceled();
+            MappingIndex index = loaded.bySource.get(target.path);
+            var psi = PsiDocumentManager.getInstance(project).getPsiFile(target.document);
+            boolean scannable = index != null && psi != null && target.document.getTextLength() <= MAX_DOCUMENT_LENGTH;
+            List<TranslationHint> hints = List.of();
+            if (scannable) {
+                Path root = loaded.roots.get(target.path);
+                String relative = root.relativize(target.path.toAbsolutePath().normalize()).toString().replace(java.io.File.separatorChar, '/');
+                var context = new MappingIndex.FileContext(relative, loaded.hashes.get(target.path),
+                        target.document.getImmutableCharSequence().toString());
+                hints = TranslationHint.scan(psi, index, context);
+            }
+            plans.add(new Plan(target, target.document.getModificationStamp(), hints));
+        }
+        return plans;
+    }
+
+    private void apply(List<Plan> plans) {
+        for (Plan plan : plans) {
+            Editor editor = plan.target.editor;
+            // After a newer edit, its stale hints are already gone and another refresh is scheduled.
+            if (editor.isDisposed() || plan.stamp != plan.target.document.getModificationStamp()) continue;
+            presenter.show(editor, plan.hints);
+        }
+    }
+
+    /** Notifies once per distinct error; a root that recovers and fails again is reported again. */
+    private void report(Map<Path, String> errors) {
+        errors.forEach((root, message) -> {
+            if (message.equals(reportedErrors.get(root))) return;
+            NotificationGroupManager.getInstance().getNotificationGroup(NOTIFICATION_GROUP)
+                    .createNotification("Cannot load CodeI18n translations",
+                            StringUtil.escapeXmlEntities(root + ": " + message), NotificationType.WARNING)
+                    .notify(project);
+        });
+        reportedErrors.clear();
+        reportedErrors.putAll(errors);
+    }
+
+    private boolean isStale() { return disposed || project.isDisposed(); }
+    private boolean isStale(long revision) { return isStale() || revision != generation.get(); }
 
     @Override public void dispose() {
         disposed = true;
+        watchedSources = List.of();
         generation.incrementAndGet();
-        if (ApplicationManager.getApplication().isDispatchThread()) clearAll();
-        else ApplicationManager.getApplication().invokeLater(this::clearAll, ModalityState.any());
-        attachedEditors.clear();
     }
 }

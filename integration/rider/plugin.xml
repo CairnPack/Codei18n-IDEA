@@ -1,0 +1,6 @@
+<idea-plugin>
+ <id>dev.codei18n.integration.rider</id><name>CodeI18n Rider Integration Harness</name><version>1</version><vendor>Local test</vendor>
+ <!-- Platform and the main plugin only: Rider ships neither com.intellij.java nor org.jetbrains.kotlin. -->
+ <depends>com.intellij.modules.platform</depends><depends>dev.codei18n.idea</depends>
+ <extensions defaultExtensionNs="com.intellij"><appStarter id="codei18n-rider-smoke" implementation="dev.codei18n.integration.RiderStarter"/></extensions>
+</idea-plugin>
