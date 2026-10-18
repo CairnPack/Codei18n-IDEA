@@ -33,6 +33,8 @@ public final class TranslationRenderer implements EditorCustomElementRenderer {
     }
 
     private final String text;
+    /** What is painted: the translation with documentation markup simplified; styles index this text. */
+    private final String display;
     private final String language;
     private final CommentHighlighting.Result highlighting;
     private Layout layout; // EDT only.
@@ -41,8 +43,10 @@ public final class TranslationRenderer implements EditorCustomElementRenderer {
         this.text = text;
         this.language = language;
         this.highlighting = highlighting;
+        this.display = highlighting.displayOf(text);
     }
 
+    /** The raw translation (not the simplified display text). */
     public String text() { return text; }
 
     /** Drops the cached layout, e.g. after the scheme's attributes or TODO patterns changed in place. */
@@ -93,11 +97,11 @@ public final class TranslationRenderer implements EditorCustomElementRenderer {
         return layout.lines;
     }
 
-    /** One style per character of {@code text}: comment base, lexer spans, then the IDE's TODO patterns. */
+    /** One style per character of {@code display}: comment base, lexer spans, then the IDE's TODO patterns. */
     private TextAttributes[] styles(Editor editor) {
         var scheme = editor.getColorsScheme();
         TextAttributes base = baseStyle(scheme);
-        TextAttributes[] styles = new TextAttributes[text.length()];
+        TextAttributes[] styles = new TextAttributes[display.length()];
         Arrays.fill(styles, base);
         for (var span : highlighting.spans()) {
             TextAttributes style = base;
@@ -114,7 +118,7 @@ public final class TranslationRenderer implements EditorCustomElementRenderer {
             var overlay = attributes.shouldUseCustomTodoColor() ? attributes.getTextAttributes()
                     : scheme.getAttributes(CodeInsightColors.TODO_DEFAULT_ATTRIBUTES);
             if (overlay == null) continue;
-            var matcher = pattern.getPattern().matcher(text);
+            var matcher = pattern.getPattern().matcher(display);
             while (matcher.find()) {
                 for (int i = matcher.start(); i < matcher.end(); i++) styles[i] = TextAttributes.merge(styles[i], overlay);
             }
@@ -127,18 +131,18 @@ public final class TranslationRenderer implements EditorCustomElementRenderer {
         TextAttributes base = baseStyle(editor.getColorsScheme());
         TextAttributes[] styles = styles(editor);
         String label = "[" + language + "] ";
-        String display = label + text;
+        String shown = label + display;
         Map<Integer, Font> fonts = new HashMap<>();
         List<Line> lines = new ArrayList<>();
         List<Run> runs = new ArrayList<>();
         int width = 0;
-        for (int i = 0; i < display.length(); ) {
-            int cp = display.codePointAt(i);
+        for (int i = 0; i < shown.length(); ) {
+            int cp = shown.codePointAt(i);
             if (isLineBreak(cp)) {
                 lines.add(new Line(runs, width));
                 runs = new ArrayList<>();
                 width = 0;
-                i += cp == '\r' && i + 1 < display.length() && display.charAt(i + 1) == '\n' ? 2 : 1;
+                i += cp == '\r' && i + 1 < shown.length() && shown.charAt(i + 1) == '\n' ? 2 : 1;
                 continue;
             }
             var style = i < label.length() ? base : styles[i - label.length()];
@@ -168,7 +172,7 @@ public final class TranslationRenderer implements EditorCustomElementRenderer {
     private Font font(Editor editor, int fontType) {
         Font configured = editor.getColorsScheme().getFont(EditorFontType.PLAIN).deriveFont(fontType);
         // Logical Dialog uses the JBR's composite fallback fonts for CJK translations.
-        return configured.canDisplayUpTo(text) == -1 ? configured
+        return configured.canDisplayUpTo(display) == -1 ? configured
                 : new Font(Font.DIALOG, fontType, configured.getSize()).deriveFont(configured.getSize2D());
     }
 

@@ -76,12 +76,14 @@ record TranslationHint(int offset, int commentLength, String text, String langua
         List<TranslationHint> hints = new ArrayList<>();
         for (MappingIndex.Located located : index.fallback(context)) {
             hints.add(new TranslationHint(located.end(), located.end() - located.start(), located.text(),
-                    index.language(), CommentHighlighting.plain(located.type())));
+                    index.language(), CommentHighlighting.plain(located.type(), located.text(), context.relativePath(),
+                    index.language())));
         }
         return hints;
     }
 
     private static TranslationHint of(PsiComment last, int start, int end, String translated, String language) {
-        return new TranslationHint(end, end - start, translated, language, CommentHighlighting.translate(last, translated));
+        return new TranslationHint(end, end - start, translated, language,
+                CommentHighlighting.translate(last, translated, language));
     }
 }
