@@ -213,6 +213,67 @@ public final class LanguageSamplesTest {
         System.out.println("LATENCIES " + String.join("; ", latencies));
     }
 
+    /**
+     * One sample on its own, for IDEs without the Java and Kotlin plugins (test-rider.ps1 runs Ledger.cs in Rider):
+     * opened by itself, the same assertions as {@link #run} (block, merged line group, doc comment, string literal,
+     * matching path), a screenshot of the real editor to {@code png}, an external rewrite of the block translation,
+     * then the document and the file unchanged byte for byte. Call from a non-EDT thread with translations enabled
+     * in below mode and the display language following config.json. Returns the latency lines.
+     */
+    public static List<String> runSingle(Project project, Path samples, String file, Path png) throws Exception {
+        Sample sample = SAMPLES.stream().filter(s -> s.file.equals(file)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("no sample " + file));
+        int baseline = ApplicationInfo.getInstance().getBuild().getBaselineVersion();
+        Path mappings = samples.resolve(".codei18n/mappings.json");
+        String originalMappings = Files.readString(mappings);
+        Path source = samples.resolve(file);
+        byte[] before = Files.readAllBytes(source);
+        List<String> latencies = new ArrayList<>();
+        Files.createDirectories(png.getParent());
+        ui(() -> com.intellij.openapi.vfs.VfsUtil.markDirtyAndRefresh(false, true, true,
+                LocalFileSystem.getInstance().refreshAndFindFileByNioFile(samples)));
+        Editor[] editor = new Editor[1];
+        long opened = System.nanoTime();
+        ui(() -> {
+            VirtualFile virtualFile = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(source);
+            Document document = FileDocumentManager.getInstance().getDocument(virtualFile);
+            editor[0] = EditorFactory.getInstance().createEditor(document, project, virtualFile, false);
+        });
+        try {
+            waitFor(sample.label + ": three translations shown", () -> blocks(editor[0]).size() == 3, 60);
+            long ms = millis(opened);
+            latencies.add(sample.label + " open=" + ms + "ms");
+            System.out.println("LATENCY open " + sample.label + " " + ms + "ms");
+            require(ms <= REFRESH_BOUND_MS, sample.label + ": newly opened editor translated within 5 s (" + ms + "ms)");
+            verifySample(project, sample, editor[0], originalMappings, baseline);
+            screenshot(editor[0], png);
+
+            Comment block = locate(editor[0].getDocument().getText(), sample.docLines).get(0);
+            JsonObject edited = JsonParser.parseString(originalMappings).getAsJsonObject();
+            String rewritten = "外部改写后的新译文（" + sample.label + "）";
+            for (var entry : edited.getAsJsonObject("comments").entrySet()) {
+                JsonObject texts = entry.getValue().getAsJsonObject();
+                if (texts.get("en").getAsString().equals(block.original)) texts.addProperty("zh-CN", rewritten);
+            }
+            long written = System.nanoTime();
+            atomicWrite(mappings, edited.toString());
+            waitFor(sample.label + " block shows the rewritten translation", () -> textAt(editor[0], block.end).equals(List.of(rewritten)), 20);
+            long rewriteMs = millis(written);
+            latencies.add("mappings rewrite " + sample.label + "=" + rewriteMs + "ms");
+            System.out.println("LATENCY mappings-rewrite " + sample.label + "=" + rewriteMs + "ms");
+            require(rewriteMs <= REFRESH_BOUND_MS, sample.label + ": external translation rewrite shown within 5 s");
+            atomicWrite(mappings, originalMappings);
+            waitFor(sample.label + ": original translations restored", () -> consistent(editor[0], 3, sample.docLines), 20);
+            ui(() -> require(editor[0].getDocument().getText().equals(new String(before, StandardCharsets.UTF_8)),
+                    sample.label + ": document text unchanged by the translations"));
+        } finally {
+            atomicWrite(mappings, originalMappings);
+            ui(() -> EditorFactory.getInstance().releaseEditor(editor[0]));
+        }
+        require(Arrays.equals(before, Files.readAllBytes(source)), sample.label + ": source file bytes unchanged");
+        return latencies;
+    }
+
     /** Exact translations for block, line group and doc comment; nothing for the string literal; the matching path. */
     private static void verifySample(Project project, Sample sample, Editor editor, String mappingsJson, int baseline) {
         JsonObject comments = JsonParser.parseString(mappingsJson).getAsJsonObject().getAsJsonObject("comments");
