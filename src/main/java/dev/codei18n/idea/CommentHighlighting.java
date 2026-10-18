@@ -37,8 +37,8 @@ final class CommentHighlighting {
         static Syntax of(PsiComment comment) {
             Commenter commenter = LanguageCommenters.INSTANCE.forLanguage(comment.getLanguage());
             if (commenter instanceof CodeDocumentationAwareCommenter docs && docs.isDocumentationComment(comment)) {
-                return docs.isDocumentationLineComment(comment)
-                        ? syntax(DefaultLanguageHighlighterColors.DOC_COMMENT, docs.getDocumentationLineCommentPrefix(), "")
+                return PlatformCompat.isDocumentationLineComment(docs, comment)
+                        ? syntax(DefaultLanguageHighlighterColors.DOC_COMMENT, PlatformCompat.documentationLineCommentPrefix(docs), "")
                         : syntax(DefaultLanguageHighlighterColors.DOC_COMMENT, docs.getDocumentationCommentPrefix(),
                                 docs.getDocumentationCommentSuffix());
             }
@@ -93,6 +93,7 @@ final class CommentHighlighting {
     private static void lex(SyntaxHighlighter highlighter, String prefix, String text, String suffix, int offset,
                             List<Span> spans) {
         var lexer = highlighter.getHighlightingLexer();
+        boolean[] inCode = inlineCode(text);
         lexer.start(prefix + text + suffix);
         for (; lexer.getTokenType() != null; lexer.advance()) {
             int start = Math.max(0, lexer.getTokenStart() - prefix.length());
@@ -102,12 +103,35 @@ final class CommentHighlighting {
             TextAttributesKey[] keys = highlighter.getTokenHighlights(type);
             // Kotlin applies KDOC_LINK in BeforeResolveHighlightingVisitor, not its lexer. Use the lexer's
             // link token so inline code and ordinary brackets stay untouched.
-            if ("kotlin".equals(type.getLanguage().getID()) && "KDOC_MARKDOWN_LINK".equals(type.toString())) {
+            // The 251 KDoc lexer has no inline-code token, so [x] inside `code` is also lexed as a link:
+            // never style links that fall inside a backtick code span.
+            if ("kotlin".equals(type.getLanguage().getID()) && "KDOC_MARKDOWN_LINK".equals(type.toString())
+                    && !inCode[start]) {
                 keys = Arrays.copyOf(keys, keys.length + 1);
                 keys[keys.length - 1] = KDOC_LINK;
             }
             spans.add(new Span(offset + start, offset + end, keys));
         }
+    }
+
+    /** Marks characters inside a backtick code span on one line (Markdown inline code). */
+    static boolean[] inlineCode(String text) {
+        boolean[] inside = new boolean[text.length() + 1];
+        int open = -1;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '\n') {
+                open = -1; // inline code never spans lines
+            } else if (c == '`') {
+                if (open < 0) {
+                    open = i;
+                } else {
+                    Arrays.fill(inside, open, i + 1, true);
+                    open = -1;
+                }
+            }
+        }
+        return inside;
     }
 
     /** Parses a detached file to tell real Javadoc references from link labels and {@code {@code}} contents. */

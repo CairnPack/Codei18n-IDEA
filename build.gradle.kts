@@ -10,7 +10,8 @@ dependencies {
     testImplementation(fileTree("${ideaHome.orNull}/lib") { include("*.jar") })
 }
 java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
-tasks.withType<JavaCompile>().configureEach { options.encoding = "UTF-8" }
+// 输出 Java 21 字节码：since-build 251（IDEA 2025.1）运行在 JBR 21 上。
+tasks.withType<JavaCompile>().configureEach { options.encoding = "UTF-8"; options.release = 21 }
 
 tasks.processResources {
     inputs.property("pluginVersion", project.version.toString())

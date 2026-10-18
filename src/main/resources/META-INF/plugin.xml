@@ -7,7 +7,7 @@
         Display translations from .codei18n/mappings.json below source comments without changing source files.
         Supports automatic reload, project language selection and nested .codei18n roots.
     ]]></description>
-    <idea-version since-build="262" until-build="262.*"/>
+    <idea-version since-build="251" until-build="262.*"/>
     <depends>com.intellij.modules.platform</depends>
     <extensions defaultExtensionNs="com.intellij">
         <postStartupActivity implementation="dev.codei18n.idea.TranslationStartup"/>
