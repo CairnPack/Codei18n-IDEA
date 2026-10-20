@@ -16,11 +16,17 @@ foreach($fresh in @("$root/project/languages","$root/branch-switch")){if(Test-Pa
 Copy-Item "$PSScriptRoot/examples/languages" "$root/project/languages" -Recurse -Force
 if(Test-Path -LiteralPath "$root/project/languages/.codei18n/cache"){Remove-Item -LiteralPath "$root/project/languages/.codei18n/cache" -Recurse -Force}
 Copy-Item "$PSScriptRoot/integration/fixtures/branch-switch" "$root/branch-switch" -Recurse -Force
+# Rider solution layout: .git and .codei18n at the repository root, the solution in src/backend.
+$solutionLayout="$root/solution-layout"
+if(Test-Path -LiteralPath $solutionLayout){Remove-Item -LiteralPath $solutionLayout -Recurse -Force}
+New-Item -ItemType Directory -Force "$solutionLayout/.git","$solutionLayout/src/backend" | Out-Null
+Copy-Item "$PSScriptRoot/examples/demo/.codei18n" $solutionLayout -Recurse -Force
+Copy-Item "$PSScriptRoot/examples/demo/Demo.java" "$solutionLayout/src/backend" -Force
 # Replace, not merge: a jar left over from another plugin version would load twice.
 if(Test-Path -LiteralPath "$root/plugins/codei18n-idea"){Remove-Item -LiteralPath "$root/plugins/codei18n-idea" -Recurse -Force}
 Copy-Item "$PSScriptRoot/build/package/codei18n-idea" "$root/plugins" -Recurse -Force
 $sdkClasspath=(Get-ChildItem "$IdeaHome/lib" -Filter '*.jar' | ForEach-Object FullName) -join ';'
-$compileArgs=@('--release','21','-encoding','UTF-8','-classpath',"$PSScriptRoot/build/classes;$sdkClasspath",'-d',"$root/harness-classes","$PSScriptRoot/integration/SmokeStarter.java","$PSScriptRoot/integration/HighlightingTest.java","$PSScriptRoot/integration/DisplayModeTest.java","$PSScriptRoot/integration/LanguageSamplesTest.java")
+$compileArgs=@('--release','21','-encoding','UTF-8','-classpath',"$PSScriptRoot/build/classes;$sdkClasspath",'-d',"$root/harness-classes","$PSScriptRoot/integration/SmokeStarter.java","$PSScriptRoot/integration/HighlightingTest.java","$PSScriptRoot/integration/DisplayModeTest.java","$PSScriptRoot/integration/LanguageSamplesTest.java","$PSScriptRoot/integration/SolutionLayoutTest.java")
 $compileArgs | ForEach-Object {'"'+$_.Replace('\','/')+'"'} | Set-Content "$root/compiler.args" -Encoding utf8
 & "$JdkHome/bin/java.exe" -m jdk.compiler/com.sun.tools.javac.Main "@$root/compiler.args"
 if($LASTEXITCODE -ne 0){throw 'Harness compilation failed'}
@@ -44,6 +50,7 @@ codei18n.smoke.result=$portable/result.txt
 codei18n.smoke.languages=$portable/project/languages
 codei18n.smoke.branch=$portable/branch-switch
 codei18n.smoke.screenshots=$portable/screenshots
+codei18n.smoke.solution=$portable/solution-layout
 "@ | Set-Content "$root/idea.properties" -Encoding ascii
 $launch=(Get-Content "$IdeaHome/product-info.json" -Raw | ConvertFrom-Json).launch[0]
 $classpath=($launch.bootClassPathJarNames | ForEach-Object {Join-Path "$IdeaHome/lib" $_}) -join ';'

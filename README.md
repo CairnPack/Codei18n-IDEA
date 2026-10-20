@@ -4,9 +4,9 @@
 
 ## 安装与兼容范围
 
-版本 **0.2.0**，兼容 **IntelliJ 平台 2025.1 – 2026.2**（`since-build="251"`，`until-build="262.*"`），在 IntelliJ IDEA 2025.1 Community 与 2026.2 Ultimate 上做过真实 IDE 集成测试。插件只依赖平台模块，Rider、WebStorm 等同一平台版本的 IDE 也可安装；没有语言插件的文件走下文的“无 PSI 回退”。
+版本 **0.2.1**，兼容 **IntelliJ 平台 2025.1 – 2026.2**（`since-build="251"`，`until-build="262.*"`），在 IntelliJ IDEA 2025.1 Community 与 2026.2 Ultimate 上做过真实 IDE 集成测试。插件只依赖平台模块，Rider、WebStorm 等同一平台版本的 IDE 也可安装；没有语言插件的文件走下文的“无 PSI 回退”。
 
-1. 构建或取得 `build/distributions/codei18n-idea-0.2.0.zip`。
+1. 构建或取得 `build/distributions/codei18n-idea-0.2.1.zip`。
 2. Settings → Plugins → 齿轮 → Install Plugin from Disk，选择 ZIP。
 3. 按提示重启，打开含 `.codei18n` 的项目与源码文件。
 4. Settings → CodeI18n：开关显示、填写显示语言（`zh-CN`、`zh-TW`、`ja` 等，留空跟随项目配置）、选择显示模式。
