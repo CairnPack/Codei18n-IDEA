@@ -19,6 +19,7 @@ public final class SmokeStarter implements ApplicationStarter {
  private static void check(boolean value,String message) {if(!value) throw new AssertionError(message); System.out.println("PASS: "+message);}
  public void main(List<String> args) {
   try {
+   SolutionLayoutTest.run(Path.of(System.getProperty("codei18n.smoke.solution")));
    Path root=Path.of(System.getProperty("codei18n.smoke.project"));
    Path source=root.resolve("Demo.java"); byte[] before=Files.readAllBytes(source);
    Project project=ProjectManagerEx.getInstanceEx().openProject(root,OpenProjectTask.build());
@@ -187,7 +188,7 @@ public final class SmokeStarter implements ApplicationStarter {
    waitCount(editor[0],0);
    check(Arrays.equals(before,Files.readAllBytes(source)),"source file bytes unchanged");
    ui(()->EditorFactory.getInstance().releaseEditor(editor[0]));
-   Files.writeString(Path.of(System.getProperty("codei18n.smoke.result")),"PASS: IDEA platform load, Java PSI including Javadoc, two translation block inlays, zh-CN and zh-TW text, automatic source edit, external mapping/config reload without VFS refresh, same-metadata replacement, file/directory deletion and recreation, malformed mapping cleanup and recovery, Chinese paint PNG, disable clears inlays, source unchanged; language samples Kotlin/Java/TypeScript/JavaScript/Dart/C# (block, merged line group, doc, string literal, PSI vs fallback path), auto refresh on open/rewrite/branch switch, editor screenshots\n");
+   Files.writeString(Path.of(System.getProperty("codei18n.smoke.result")),"PASS: IDEA platform load, Java PSI including Javadoc, two translation block inlays, zh-CN and zh-TW text, automatic source edit, external mapping/config reload without VFS refresh, same-metadata replacement, file/directory deletion and recreation, malformed mapping cleanup and recovery, Chinese paint PNG, disable clears inlays, source unchanged; language samples Kotlin/Java/TypeScript/JavaScript/Dart/C# (block, merged line group, doc, string literal, PSI vs fallback path), auto refresh on open/rewrite/branch switch, editor screenshots; Rider solution layout (.idea/.idea.<name> base path, .codei18n at the Git root above the solution, external reload)\n");
    System.exit(0);
   } catch(Throwable e) {e.printStackTrace();System.exit(1);}
  }

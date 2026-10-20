@@ -1,7 +1,7 @@
 plugins { java }
 
 group = "dev.codei18n"
-version = providers.gradleProperty("pluginVersion").getOrElse("0.2.0")
+version = providers.gradleProperty("pluginVersion").getOrElse("0.2.1")
 
 // Compile against an installed IDEA SDK; no IDE download or third-party runtime dependencies.
 val ideaHome = providers.gradleProperty("ideaHome").orElse(providers.environmentVariable("IDEA_HOME"))

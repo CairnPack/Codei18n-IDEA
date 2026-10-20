@@ -9,6 +9,7 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.components.Service;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.EditorFactory;
@@ -32,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -43,6 +45,7 @@ public final class TranslationService implements Disposable {
     private static final int DEBOUNCE_MS = 350;
     private static final int MAX_DOCUMENT_LENGTH = 2 * 1024 * 1024;
     private static final String NOTIFICATION_GROUP = "CodeI18n";
+    private static final Logger LOG = Logger.getInstance(TranslationService.class);
 
     private record Target(Editor editor, Document document, Path path) {}
     /**
@@ -57,6 +60,7 @@ public final class TranslationService implements Disposable {
     private final Alarm alarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD, this);
     private final MappingRepository repository = new MappingRepository();
     private final Map<Path, String> reportedErrors = new HashMap<>();
+    private final Set<Path> loggedRoots = ConcurrentHashMap.newKeySet();
     private final AtomicLong generation = new AtomicLong();
     private InlayPresenter presenter; // Set once on the EDT by start(); null until then.
     private volatile boolean disposed;
@@ -220,6 +224,7 @@ public final class TranslationService implements Disposable {
             if (isStale(revision)) return null;
             Path root = CodeI18nFiles.findRoot(target.path, base);
             if (root == null) continue;
+            if (loggedRoots.add(root)) LOG.info("CodeI18n root " + root + " (project base " + base + ")");
             if (!byRoot.containsKey(root)) byRoot.put(root, loadRoot(root, language, errors));
             bySource.put(target.path, byRoot.get(root));
             roots.put(target.path, root);
